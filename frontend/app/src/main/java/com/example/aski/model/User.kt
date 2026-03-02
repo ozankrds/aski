@@ -1,10 +1,11 @@
 package com.example.aski.model
 
-import java.util.UUID
-
 data class User(
-    val id: String = UUID.randomUUID().toString(),
-    val email: String,
-    val displayName: String,
+    val id: String = "",
+    val name: String = "",
+    val email: String = "",
+    val photoUrl: String = "",
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor() : this(id = "")
+}

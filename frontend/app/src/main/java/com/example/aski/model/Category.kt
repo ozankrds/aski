@@ -1,11 +1,8 @@
 package com.example.aski.model
 
-data class Category(
-    val id: Int,
-    val name: String
-)
+data class Category(val id: Int, val name: String)
 
-val mockCategories = listOf(
+val categories = listOf(
     Category(0, "All"),
     Category(1, "Clothing"),
     Category(2, "Electronics"),

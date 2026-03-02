@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "574335725834",
+    "project_id": "aski-akd",
+    "storage_bucket": "aski-akd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:574335725834:android:5aea7516d8e16de4cc8af3",
+        "android_client_info": {
+          "package_name": "com.example.aski"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5XEPPKUk9EBpYnOhcIUEx2u9jJJ-C38U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

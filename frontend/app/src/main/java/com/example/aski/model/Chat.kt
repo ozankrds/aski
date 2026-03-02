@@ -1,12 +1,13 @@
 package com.example.aski.model
 
-import java.util.UUID
-
 data class Chat(
-    val id: String = UUID.randomUUID().toString(),
-    val itemId: String,
-    val requesterId: String,
-    val ownerId: String,
-    val createdAt: Long = System.currentTimeMillis(),
-    val lastMessageAt: Long = System.currentTimeMillis()
-)
+    val id: String = "",
+    val itemId: String = "",
+    val participants: List<String> = emptyList(), // [requesterId, ownerId]
+    val requesterId: String = "",
+    val lastMessage: String = "",               // preview, avoid extra query
+    val lastMessageAt: Long = System.currentTimeMillis(),
+    val createdAt: Long = System.currentTimeMillis()
+) {
+    constructor() : this(id = "")
+}

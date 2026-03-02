@@ -1,23 +1,19 @@
 package com.example.aski.model
 
-import java.util.UUID
-
-enum class ItemCondition {
-    NEW, USED_GOOD, USED_FAIR
-}
-
-enum class ItemStatus {
-    AVAILABLE, RESERVED, GIVEN
-}
+enum class ItemCondition { NEW, USED_GOOD, USED_FAIR }
+enum class ItemStatus { AVAILABLE, RESERVED, GIVEN }
 
 data class Item(
-    val id: String = UUID.randomUUID().toString(),
-    val ownerId: String,
-    val categoryId: Int,
-    val title: String,
-    val description: String,
-    val condition: ItemCondition,
+    val id: String = "",
+    val ownerId: String = "",
+    val categoryId: Int = 0,
+    val title: String = "",
+    val description: String = "",
+    val condition: ItemCondition = ItemCondition.NEW,
     val status: ItemStatus = ItemStatus.AVAILABLE,
-    val primaryImageUrl: String,
+    val imageUrl: String = "",
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    // Firestore requires no-arg constructor
+    constructor() : this(id = "")
+}

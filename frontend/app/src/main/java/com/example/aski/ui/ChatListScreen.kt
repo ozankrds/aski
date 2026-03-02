@@ -12,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.aski.model.Chat
-import com.example.aski.model.User
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -21,7 +20,6 @@ import java.util.*
 fun ChatListScreen(
     chats: List<Chat>,
     currentUserId: String,
-    getUserById: (String) -> User?,
     onChatClick: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
@@ -38,35 +36,42 @@ fun ChatListScreen(
         }
     ) { innerPadding ->
         if (chats.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                Text("No messages yet")
+            Box(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No messages yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(modifier = Modifier.padding(innerPadding)) {
-                items(chats) { chat ->
-                    val otherUserId = if (chat.requesterId == currentUserId) chat.ownerId else chat.requesterId
-                    val otherUser = getUserById(otherUserId)
-                    
+                items(chats, key = { it.id }) { chat ->
+                    val otherUserId = chat.participants.firstOrNull { it != currentUserId } ?: "Unknown"
+                    val initial = otherUserId.take(1).uppercase()
+                    val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(chat.lastMessageAt))
+
                     ListItem(
-                        headlineContent = { Text(otherUser?.displayName ?: "Unknown User") },
-                        supportingContent = { 
-                            val date = Date(chat.lastMessageAt)
-                            val format = SimpleDateFormat("HH:mm", Locale.getDefault())
-                            Text("Last message at ${format.format(date)}")
+                        headlineContent = { Text(otherUserId) }, // isim göstermek istersen Chat'e otherUserName ekle
+                        supportingContent = {
+                            Text(
+                                chat.lastMessage.ifBlank { timeStr },
+                                maxLines = 1,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         },
                         leadingContent = {
                             Surface(
-                                modifier = Modifier.size(40.dp),
-                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier.size(42.dp),
+                                shape = MaterialTheme.shapes.medium,
                                 color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = otherUser?.displayName?.take(1) ?: "?",
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
+                                    Text(initial, style = MaterialTheme.typography.titleMedium)
                                 }
                             }
+                        },
+                        trailingContent = {
+                            Text(timeStr, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
                         modifier = Modifier.clickable { onChatClick(chat.id) }
                     )
