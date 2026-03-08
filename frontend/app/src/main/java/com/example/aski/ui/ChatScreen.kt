@@ -21,7 +21,7 @@ fun ChatScreen(
     chatId: String,
     messages: List<Message>,
     currentUserId: String,
-    otherUserId: String?,
+    otherUserName: String?,
     onSendMessage: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
@@ -36,7 +36,7 @@ fun ChatScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(otherUserId ?: "Chat") },
+                title = { Text(otherUserName ?: "Chat") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

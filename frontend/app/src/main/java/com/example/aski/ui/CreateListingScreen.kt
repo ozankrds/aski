@@ -23,11 +23,11 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.aski.model.ItemCondition
 import com.example.aski.model.categories
-import com.google.firebase.Firebase
-import com.google.firebase.storage.storage
+import com.example.aski.firebase.FirebaseManager
 import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlinx.coroutines.tasks.await
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateListingScreen(
@@ -224,7 +224,7 @@ fun CreateListingScreen(
 }
 
 private suspend fun uploadImageToStorage(uri: Uri): String {
-    val ref = Firebase.storage.reference.child("items/${UUID.randomUUID()}.jpg")
-    ref.putFile(uri).await()  // bu await() kotlinx-coroutines-play-services'ten geliyor
+    val ref = FirebaseManager.storage.reference.child("items/${UUID.randomUUID()}.jpg")
+    ref.putFile(uri).await()
     return ref.downloadUrl.await().toString()
 }

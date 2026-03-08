@@ -11,6 +11,7 @@ import com.example.aski.ui.viewmodel.AuthState
 import com.example.aski.ui.viewmodel.AuthViewModel
 import com.example.aski.ui.viewmodel.ChatViewModel
 import com.example.aski.ui.viewmodel.ItemViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun AskiApp() {
@@ -75,23 +76,30 @@ fun AskiApp() {
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+            val scope = rememberCoroutineScope()
             var item by remember { mutableStateOf(itemViewModel.feedItems.value.find { it.id == itemId }) }
 
             LaunchedEffect(itemId) {
                 if (item == null) item = itemViewModel.getItem(itemId)
             }
 
-            item?.let {
+            item?.let { itm ->
                 ItemDetailScreen(
-                    item = it,
-                    isOwner = it.ownerId == currentUser?.id,
+                    item = itm,
+                    isOwner = itm.ownerId == currentUser?.id,
                     onBackClick = { navController.popBackStack() },
                     onChatClick = { ownerId ->
                         if (currentUser == null) {
                             navController.navigate(Screen.Login.route)
                         } else {
-                            // coroutine scope gerekiyor — LaunchedEffect ile handle et
-                            navController.navigate(Screen.ChatList.route) // geçici, aşağıya bak
+                            scope.launch {
+                                val chat = chatViewModel.getOrCreateChat(itm.id, currentUser.id, ownerId)
+                                if (chat != null) {
+                                    // Send the interest message
+                                    chatViewModel.sendMessage(chat.id, currentUser.id, "I'm interested in ${itm.title}")
+                                    navController.navigate(Screen.Chat.createRoute(chat.id))
+                                }
+                            }
                         }
                     },
                     onUpdateItem = { updatedItem ->
@@ -129,10 +137,13 @@ fun AskiApp() {
         }
         composable(Screen.ChatList.route) {
             val chats by chatViewModel.chats.collectAsState()
+            val userNames by chatViewModel.userNames.collectAsState()
             currentUser?.let { user ->
                 ChatListScreen(
                     chats = chats,
                     currentUserId = user.id,
+                    userNames = userNames,
+                    onFetchName = { chatViewModel.fetchUserName(it) },
                     onChatClick = { chatId -> navController.navigate(Screen.Chat.createRoute(chatId)) },
                     onBackClick = { navController.popBackStack() }
                 )
@@ -144,6 +155,7 @@ fun AskiApp() {
         ) { backStackEntry ->
             val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
             val messages by chatViewModel.messages.collectAsState()
+            val otherUser by chatViewModel.otherUser.collectAsState()
 
             LaunchedEffect(chatId) {
                 chatViewModel.observeMessages(chatId)
@@ -153,11 +165,15 @@ fun AskiApp() {
                 val chat = chatViewModel.chats.value.find { it.id == chatId }
                 val otherUserId = chat?.participants?.firstOrNull { it != user.id }
 
+                LaunchedEffect(otherUserId) {
+                    otherUserId?.let { chatViewModel.fetchOtherUser(it) }
+                }
+
                 ChatScreen(
                     chatId = chatId,
                     messages = messages,
                     currentUserId = user.id,
-                    otherUserId = otherUserId,
+                    otherUserName = otherUser?.name,
                     onSendMessage = { content -> chatViewModel.sendMessage(chatId, user.id, content) },
                     onBackClick = { navController.popBackStack() }
                 )

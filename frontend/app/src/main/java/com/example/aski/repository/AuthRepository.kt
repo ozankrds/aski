@@ -21,7 +21,8 @@ class AuthRepository(
 
     suspend fun login(email: String, password: String): Result<User> = runCatching {
         val firebaseUser = auth.signInWithEmailAndPassword(email, password).await().user!!
-        User(
+        // Fetch full user profile from Firestore after successful auth login
+        getUserById(firebaseUser.uid) ?: User(
             id = firebaseUser.uid,
             name = firebaseUser.displayName ?: "",
             email = firebaseUser.email ?: ""
@@ -32,6 +33,9 @@ class AuthRepository(
 
     suspend fun getCurrentUser(): User? {
         val uid = auth.currentUser?.uid ?: return null
-        return db.collection("users").document(uid).get().await().toObject(User::class.java)
+        return getUserById(uid)
     }
+
+    suspend fun getUserById(userId: String): User? =
+        db.collection("users").document(userId).get().await().toObject(User::class.java)
 }

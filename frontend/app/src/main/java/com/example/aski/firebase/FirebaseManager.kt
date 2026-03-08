@@ -7,5 +7,7 @@ import com.google.firebase.storage.FirebaseStorage
 object FirebaseManager {
     val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
-    val storage: FirebaseStorage by lazy { FirebaseStorage.getInstance() }
+    val storage: FirebaseStorage by lazy { 
+        FirebaseStorage.getInstance("gs://aski-akd.firebasestorage.app")
+    }
 }

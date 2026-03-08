@@ -78,8 +78,9 @@ fun ProfileScreen(
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
                     ) {
+                        val initial = user?.name?.trim()?.takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
                         Text(
-                            user?.name?.take(1)?.uppercase() ?: "?",
+                            initial,
                             fontSize = 36.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -88,7 +89,7 @@ fun ProfileScreen(
 
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        user?.name ?: "Unknown",
+                        user?.name?.ifBlank { "Unknown" } ?: "Unknown",
                         style = MaterialTheme.typography.headlineMedium,
                         color = Color.White
                     )
