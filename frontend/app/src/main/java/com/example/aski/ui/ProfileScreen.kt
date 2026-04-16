@@ -12,7 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,11 +31,23 @@ import com.example.aski.model.User
 fun ProfileScreen(
     user: User?,
     userItems: List<Item>,
+    favoriteItems: List<Item>,
     onItemClick: (String) -> Unit,
     onMessagesClick: () -> Unit,
     onBackClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
+    var selectedTab by remember { mutableIntStateOf(0) }
+
+    val rawItems = if (selectedTab == 0) userItems else favoriteItems
+    // Sort: Available & Reserved first, Given last. Within those, newest first.
+    val displayItems = remember(rawItems) {
+        rawItems.sortedWith(
+            compareBy<Item> { it.status == ItemStatus.GIVEN }
+                .thenByDescending { it.createdAt }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -138,30 +150,43 @@ fun ProfileScreen(
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            }
+
+            // Tabs
+            item {
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    divider = {}
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("My Listings") }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Favorites") }
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
             }
 
-            // Section header
-            item {
-                Text(
-                    "My Listings",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                )
-            }
+            val emptyMessage = if (selectedTab == 0) "No listings yet" else "No favorites yet"
 
-            if (userItems.isEmpty()) {
+            if (displayItems.isEmpty()) {
                 item {
                     Box(
                         Modifier.fillMaxWidth().padding(vertical = 40.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No listings yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(emptyMessage, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
-                items(userItems, key = { it.id }) { item ->
+                items(displayItems, key = { it.id }) { item ->
                     ProfileItemRow(item = item, onClick = { onItemClick(item.id) })
                 }
             }
@@ -199,9 +224,10 @@ fun ProfileItemRow(item: Item, onClick: () -> Unit) {
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            if (item.imageUrl.isNotBlank()) {
+            val thumbnail = item.imageUrls.firstOrNull()
+            if (thumbnail != null) {
                 AsyncImage(
-                    model = item.imageUrl,
+                    model = thumbnail,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop

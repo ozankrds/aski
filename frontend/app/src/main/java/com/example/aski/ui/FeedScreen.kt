@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,17 +30,22 @@ import coil.compose.AsyncImage
 import com.example.aski.model.Item
 import com.example.aski.model.ItemStatus
 import com.example.aski.model.categories
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
     items: List<Item>,
+    favoriteIds: List<String>,
     onItemClick: (String) -> Unit,
+    onToggleFavorite: (String) -> Unit,
     onCreateListingClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf(0) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     val displayed = remember(items, searchQuery, selectedCategoryId) {
         items.filter {
@@ -54,7 +62,14 @@ fun FeedScreen(
                     Text(
                         "aski",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable {
+                            searchQuery = ""
+                            selectedCategoryId = 0
+                            scope.launch {
+                                listState.animateScrollToItem(0)
+                            }
+                        }
                     )
                 },
                 actions = {
@@ -85,6 +100,7 @@ fun FeedScreen(
         }
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier.padding(innerPadding),
             contentPadding = PaddingValues(bottom = 88.dp)
         ) {
@@ -157,7 +173,12 @@ fun FeedScreen(
                 }
             } else {
                 items(displayed, key = { it.id }) { item ->
-                    ItemCard(item = item, onClick = { onItemClick(item.id) })
+                    ItemCard(
+                        item = item,
+                        isFavorite = favoriteIds.contains(item.id),
+                        onFavoriteClick = { onToggleFavorite(item.id) },
+                        onClick = { onItemClick(item.id) }
+                    )
                     Spacer(Modifier.height(16.dp))
                 }
             }
@@ -166,7 +187,12 @@ fun FeedScreen(
 }
 
 @Composable
-fun ItemCard(item: Item, onClick: () -> Unit) {
+fun ItemCard(
+    item: Item,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
+    onClick: () -> Unit
+) {
     val categoryName = categories.find { it.id == item.categoryId }?.name ?: "Other"
 
     val statusColor = when (item.status) {
@@ -194,9 +220,10 @@ fun ItemCard(item: Item, onClick: () -> Unit) {
                 .height(260.dp)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            if (item.imageUrl.isNotBlank()) {
+            val thumbnail = item.imageUrls.firstOrNull()
+            if (thumbnail != null) {
                 AsyncImage(
-                    model = item.imageUrl,
+                    model = thumbnail,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -216,10 +243,10 @@ fun ItemCard(item: Item, onClick: () -> Unit) {
                     )
             )
 
-            // Status badge top-right
+            // Status badge top-right (now center-right to avoid overlap or left)
             Surface(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
+                    .align(Alignment.TopStart) // Moved to left to avoid favorite button
                     .padding(12.dp),
                 color = statusColor.copy(alpha = 0.15f),
                 shape = RoundedCornerShape(20.dp)
@@ -242,6 +269,21 @@ fun ItemCard(item: Item, onClick: () -> Unit) {
                         fontSize = 11.sp
                     )
                 }
+            }
+
+            // Favorite button top-right
+            IconButton(
+                onClick = { onFavoriteClick() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+            ) {
+                Icon(
+                    if (isFavorite) Icons.Default.Star else Icons.Default.StarOutline,
+                    contentDescription = "Favorite",
+                    tint = if (isFavorite) Color.Yellow else Color.White
+                )
             }
 
             // Text overlay bottom

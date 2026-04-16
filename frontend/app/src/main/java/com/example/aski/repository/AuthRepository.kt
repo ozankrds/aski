@@ -3,6 +3,7 @@ package com.example.aski.repository
 import com.example.aski.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
 import kotlinx.coroutines.tasks.await
 
 class AuthRepository(
@@ -38,4 +39,13 @@ class AuthRepository(
 
     suspend fun getUserById(userId: String): User? =
         db.collection("users").document(userId).get().await().toObject(User::class.java)
+
+    suspend fun toggleFavorite(userId: String, itemId: String, isFavorite: Boolean): Result<Unit> = runCatching {
+        val ref = db.collection("users").document(userId)
+        if (isFavorite) {
+            ref.update("favoriteIds", FieldValue.arrayUnion(itemId)).await()
+        } else {
+            ref.update("favoriteIds", FieldValue.arrayRemove(itemId)).await()
+        }
+    }
 }

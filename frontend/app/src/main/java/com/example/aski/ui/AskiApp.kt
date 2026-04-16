@@ -60,7 +60,9 @@ fun AskiApp() {
             val items by itemViewModel.filteredItems.collectAsState()
             FeedScreen(
                 items = items,
+                favoriteIds = currentUser?.favoriteIds ?: emptyList(),
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
+                onToggleFavorite = { authViewModel.toggleFavorite(it) },
                 onCreateListingClick = {
                     if (currentUser == null) navController.navigate(Screen.Login.route)
                     else navController.navigate(Screen.CreateListing.route)
@@ -77,16 +79,29 @@ fun AskiApp() {
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             val scope = rememberCoroutineScope()
-            var item by remember { mutableStateOf(itemViewModel.feedItems.value.find { it.id == itemId }) }
+            val feedItems by itemViewModel.feedItems.collectAsState()
+            val userItems by itemViewModel.userItems.collectAsState()
+            
+            // Observe item changes in real-time by finding it in the observed flows
+            val item = remember(itemId, feedItems, userItems) {
+                feedItems.find { it.id == itemId } ?: userItems.find { it.id == itemId }
+            }
+            
+            var localItem by remember { mutableStateOf<com.example.aski.model.Item?>(null) }
 
             LaunchedEffect(itemId) {
-                if (item == null) item = itemViewModel.getItem(itemId)
+                if (item == null) {
+                    localItem = itemViewModel.getItem(itemId)
+                }
             }
 
-            item?.let { itm ->
+            val displayItem = item ?: localItem
+
+            displayItem?.let { itm ->
                 ItemDetailScreen(
                     item = itm,
                     isOwner = itm.ownerId == currentUser?.id,
+                    isFavorite = currentUser?.favoriteIds?.contains(itm.id) == true,
                     onBackClick = { navController.popBackStack() },
                     onChatClick = { ownerId ->
                         if (currentUser == null) {
@@ -102,28 +117,55 @@ fun AskiApp() {
                             }
                         }
                     },
+                    onToggleFavorite = { authViewModel.toggleFavorite(itm.id) },
                     onUpdateItem = { updatedItem ->
                         itemViewModel.updateItem(updatedItem)
+                        // If it's a local fetch, update it too
+                        if (item == null) localItem = updatedItem
                     }
                 )
             }
         }
         composable(Screen.CreateListing.route) {
+            var isUploading by remember { mutableStateOf(false) }
+            var errorMessage by remember { mutableStateOf<String?>(null) }
+            
             CreateListingScreen(
-                onPostItem = { title, desc, catId, cond, url ->
+                onPostItem = { title, desc, catId, cond, uris ->
                     currentUser?.id?.let { uid ->
-                        itemViewModel.addItem(uid, title, desc, catId, cond, url)
+                        isUploading = true
+                        errorMessage = null
+                        itemViewModel.addItem(
+                            ownerId = uid,
+                            title = title,
+                            description = desc,
+                            categoryId = catId,
+                            condition = cond,
+                            imageUris = uris,
+                            onSuccess = {
+                                isUploading = false
+                                navController.popBackStack()
+                            },
+                            onError = { err ->
+                                isUploading = false
+                                errorMessage = err
+                            }
+                        )
                     }
-                    navController.popBackStack()
                 },
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                isUploading = isUploading,
+                errorMessage = errorMessage
             )
         }
         composable(Screen.Profile.route) {
             val userItems by itemViewModel.userItems.collectAsState()
+            val allItems by itemViewModel.feedItems.collectAsState()
+            
             ProfileScreen(
                 user = currentUser,
                 userItems = userItems,
+                favoriteItems = allItems.filter { currentUser?.favoriteIds?.contains(it.id) == true },
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
                 onMessagesClick = { navController.navigate(Screen.ChatList.route) },
                 onBackClick = { navController.popBackStack() },

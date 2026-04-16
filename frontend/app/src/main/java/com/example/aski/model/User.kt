@@ -5,6 +5,7 @@ data class User(
     val name: String = "",
     val email: String = "",
     val photoUrl: String = "",
+    val favoriteIds: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis()
 ) {
     constructor() : this(id = "")

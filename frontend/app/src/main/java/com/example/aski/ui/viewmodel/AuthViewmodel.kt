@@ -51,4 +51,21 @@ class AuthViewModel(
         repo.logout()
         _authState.value = AuthState.Unauthenticated
     }
+
+    fun toggleFavorite(itemId: String) {
+        val currentUser = (authState.value as? AuthState.Authenticated)?.user ?: return
+        val isFavorite = currentUser.favoriteIds.contains(itemId)
+        
+        viewModelScope.launch {
+            repo.toggleFavorite(currentUser.id, itemId, !isFavorite)
+                .onSuccess {
+                    val updatedFavorites = if (isFavorite) {
+                        currentUser.favoriteIds - itemId
+                    } else {
+                        currentUser.favoriteIds + itemId
+                    }
+                    _authState.value = AuthState.Authenticated(currentUser.copy(favoriteIds = updatedFavorites))
+                }
+        }
+    }
 }

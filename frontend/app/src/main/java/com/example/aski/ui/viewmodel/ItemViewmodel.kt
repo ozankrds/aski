@@ -1,5 +1,6 @@
 package com.example.aski.ui.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aski.model.Item
@@ -49,17 +50,32 @@ class ItemViewModel(
         description: String,
         categoryId: Int,
         condition: ItemCondition,
-        imageUrl: String
-    ) = viewModelScope.launch {
-        val item = Item(
-            ownerId = ownerId,
-            title = title,
-            description = description,
-            categoryId = categoryId,
-            condition = condition,
-            imageUrl = imageUrl
-        )
-        repo.addItem(item)
+        imageUris: List<Uri>,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val imageUrls = imageUris.map { uri ->
+                    repo.uploadImage(uri).getOrThrow()
+                }
+
+                val item = Item(
+                    ownerId = ownerId,
+                    title = title,
+                    description = description,
+                    categoryId = categoryId,
+                    condition = condition,
+                    imageUrls = imageUrls
+                )
+                repo.addItem(item).getOrThrow()
+                onSuccess()
+            } catch (e: IllegalStateException) {
+                onError(e.message ?: "User must be authenticated to upload images.")
+            } catch (e: Exception) {
+                onError(e.message ?: "Failed to post item")
+            }
+        }
     }
 
     fun updateItem(item: Item) = viewModelScope.launch { repo.updateItem(item) }
