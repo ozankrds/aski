@@ -1,6 +1,6 @@
 package com.example.aski.model
 
-enum class ItemCondition { NEW, USED_GOOD, USED_FAIR }
+enum class ItemCondition { NEW, LIKE_NEW, USED_GOOD, USED_FAIR, FOR_PARTS }
 enum class ItemStatus { AVAILABLE, RESERVED, GIVEN }
 
 data class Item(
@@ -12,6 +12,8 @@ data class Item(
     val condition: ItemCondition = ItemCondition.NEW,
     val status: ItemStatus = ItemStatus.AVAILABLE,
     val location: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val imageUrls: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis()
 ) {
