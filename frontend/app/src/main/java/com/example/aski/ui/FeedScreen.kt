@@ -55,11 +55,15 @@ fun FeedScreen(
 
     val displayed = remember(items, searchQuery, selectedCategoryId) {
         items.filter {
-            (selectedCategoryId == 0 || it.categoryId == selectedCategoryId) &&
-                (searchQuery.isBlank() ||
+            val category = categories.find { cat -> cat.id == it.categoryId }
+            val matchesCategory = selectedCategoryId == 0 || it.categoryId == selectedCategoryId
+            val matchesSearch = searchQuery.isBlank() ||
                     it.title.contains(searchQuery, ignoreCase = true) ||
                     it.description.contains(searchQuery, ignoreCase = true) ||
-                    it.location.contains(searchQuery, ignoreCase = true))
+                    it.location.contains(searchQuery, ignoreCase = true) ||
+                    (category?.name?.contains(searchQuery, ignoreCase = true) == true)
+            
+            matchesCategory && matchesSearch
         }
     }
 
