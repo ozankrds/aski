@@ -8,10 +8,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.aski.model.Message
 
@@ -23,9 +25,11 @@ fun ChatScreen(
     currentUserId: String,
     otherUserName: String?,
     onSendMessage: (String) -> Unit,
+    onRateUser: (Int) -> Unit,
     onBackClick: () -> Unit
 ) {
     var messageText by remember { mutableStateOf("") }
+    var showRatingDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     // Yeni mesaj gelince en alta scroll
@@ -40,6 +44,11 @@ fun ChatScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showRatingDialog = true }) {
+                        Icon(Icons.Default.Star, contentDescription = "Rate user", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             )
@@ -90,6 +99,40 @@ fun ChatScreen(
                 ChatBubble(message, isFromMe = message.senderId == currentUserId)
             }
         }
+    }
+
+    if (showRatingDialog) {
+        var rating by remember { mutableIntStateOf(5) }
+        AlertDialog(
+            onDismissRequest = { showRatingDialog = false },
+            title = { Text("Rate your experience") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text("How was your interaction with ${otherUserName ?: "this user"}?")
+                    Spacer(Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        (1..5).forEach { index ->
+                            IconButton(onClick = { rating = index }) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = if (index <= rating) Color(0xFFFFD700) else MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    onRateUser(rating)
+                    showRatingDialog = false
+                }) { Text("Submit") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRatingDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

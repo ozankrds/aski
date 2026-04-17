@@ -16,8 +16,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +49,7 @@ fun ProfileScreen(
     profileError: String?,
     onItemClick: (String) -> Unit,
     onMessagesClick: () -> Unit,
+    onRequestsClick: () -> Unit,
     onBackClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onUpdateProfile: (name: String, newPassword: String?, currentPassword: String?, photoUri: Uri?) -> Unit,
@@ -213,11 +216,22 @@ fun ProfileScreen(
                                 modifier = Modifier.clickable { onClearError() })
                         }
                     } else {
-                        Text(
-                            user?.name?.ifBlank { "Unknown" } ?: "Unknown",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                user?.name?.ifBlank { "Unknown" } ?: "Unknown",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            if (user?.isVerified == true) {
+                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    Icons.Default.Verified,
+                                    contentDescription = "Verified",
+                                    tint = AskiSuccess,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                         Text(
                             user?.email ?: "",
                             style = MaterialTheme.typography.bodyMedium,
@@ -228,16 +242,26 @@ fun ProfileScreen(
                     Spacer(Modifier.height(20.dp))
 
                     // Messages button
-                    OutlinedButton(
-                        onClick = onMessagesClick,
-                        shape = RoundedCornerShape(12.dp),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = null,
-                            modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Messages", fontWeight = FontWeight.SemiBold)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = onMessagesClick,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Messages", fontWeight = FontWeight.SemiBold)
+                        }
+
+                        OutlinedButton(
+                            onClick = onRequestsClick,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Requests", fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
 
@@ -254,13 +278,14 @@ fun ProfileScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatItem(label = "Listed", value = userItems.size.toString())
+                    StatItem(label = "Karma", value = user?.karmaPoints?.toString() ?: "0")
                     StatItem(
-                        label = "Given",
-                        value = userItems.count { it.status == ItemStatus.GIVEN }.toString()
+                        label = "Rating",
+                        value = if (user?.ratingCount == 0) "-" else "%.1f".format(user?.rating ?: 0.0)
                     )
                     StatItem(
-                        label = "Available",
-                        value = userItems.count { it.status == ItemStatus.AVAILABLE }.toString()
+                        label = "Given",
+                        value = user?.givenCount?.toString() ?: userItems.count { it.status == ItemStatus.GIVEN }.toString()
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)

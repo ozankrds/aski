@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,6 +24,7 @@ import coil.compose.AsyncImage
 import com.example.aski.model.Item
 import com.example.aski.model.ItemStatus
 import com.example.aski.model.User
+import com.example.aski.ui.theme.AskiSuccess
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,16 +87,30 @@ fun UserProfileScreen(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        user?.name?.ifBlank { "Unknown" } ?: "Unknown",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            user?.name?.ifBlank { "Unknown" } ?: "Unknown",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        if (user?.isVerified == true) {
+                            Spacer(Modifier.width(6.dp))
+                            Icon(
+                                Icons.Default.Verified,
+                                contentDescription = "Verified",
+                                tint = AskiSuccess,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         StatItem(label = "Listed", value = items.size.toString())
-                        StatItem(label = "Given", value = items.count { it.status == ItemStatus.GIVEN }.toString())
-                        StatItem(label = "Available", value = items.count { it.status == ItemStatus.AVAILABLE }.toString())
+                        StatItem(label = "Karma", value = user?.karmaPoints?.toString() ?: "0")
+                        StatItem(
+                            label = "Rating",
+                            value = if (user?.ratingCount == 0) "-" else "%.1f".format(user?.rating ?: 0.0)
+                        )
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
