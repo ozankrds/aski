@@ -1,6 +1,7 @@
 package com.example.aski.ui
 
 import android.content.Intent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -48,6 +49,8 @@ fun ItemDetailScreen(
     onBackClick: () -> Unit,
     onChatClick: (String) -> Unit,
     onOwnerClick: (() -> Unit)?,
+    onRequestClick: (() -> Unit)? = null,
+    onViewRequestsClick: (() -> Unit)? = null,
     onToggleFavorite: () -> Unit,
     onUpdateItem: (Item) -> Unit,
     onDeleteItem: (() -> Unit)?,
@@ -377,22 +380,44 @@ fun ItemDetailScreen(
         }
 
         // Bottom CTA
-        if (!isOwner && item.status == ItemStatus.AVAILABLE) {
-            Box(
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, AskiDarkBg.copy(alpha = 0.95f))))
-                    .padding(horizontal = 20.dp, vertical = 20.dp).navigationBarsPadding()
-            ) {
+        Box(
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.Transparent, AskiDarkBg.copy(alpha = 0.95f))))
+                .padding(horizontal = 20.dp, vertical = 20.dp).navigationBarsPadding()
+        ) {
+            if (!isOwner && item.status == ItemStatus.AVAILABLE) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = { onChatClick(item.ownerId) },
+                        modifier = Modifier.weight(1f).height(60.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Default.Chat, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Chat")
+                    }
+                    Button(
+                        onClick = { onRequestClick?.invoke() },
+                        modifier = Modifier.weight(1.5f).height(60.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                    ) {
+                        Text("Request Item", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else if (isOwner && item.status != ItemStatus.GIVEN) {
                 Button(
-                    onClick = { onChatClick(item.ownerId) },
+                    onClick = { onViewRequestsClick?.invoke() },
                     modifier = Modifier.fillMaxWidth().height(60.dp),
                     shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                 ) {
-                    Icon(Icons.Default.Chat, contentDescription = null)
+                    Icon(Icons.Default.List, contentDescription = null)
                     Spacer(Modifier.width(12.dp))
-                    Text("I want this!", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("View Requests", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

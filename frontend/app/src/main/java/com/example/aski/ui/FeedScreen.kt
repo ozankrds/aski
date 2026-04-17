@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.aski.model.Item
+import com.example.aski.model.ItemCondition
 import com.example.aski.model.ItemStatus
 import com.example.aski.model.categories
 import com.example.aski.ui.theme.AskiOnBgVariant
@@ -37,7 +39,7 @@ import com.example.aski.ui.theme.AskiSuccess
 import com.example.aski.ui.theme.AskiWarning
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FeedScreen(
     items: List<Item>,
@@ -46,24 +48,29 @@ fun FeedScreen(
     onItemClick: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onCreateListingClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    isLoading: Boolean = false
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf(0) }
+    var selectedCondition by remember { mutableStateOf<ItemCondition?>(null) }
+    var showFilterSheet by remember { mutableStateOf(false) }
+    
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    val displayed = remember(items, searchQuery, selectedCategoryId) {
+    val displayed = remember(items, searchQuery, selectedCategoryId, selectedCondition) {
         items.filter {
             val category = categories.find { cat -> cat.id == it.categoryId }
             val matchesCategory = selectedCategoryId == 0 || it.categoryId == selectedCategoryId
+            val matchesCondition = selectedCondition == null || it.condition == selectedCondition
             val matchesSearch = searchQuery.isBlank() ||
                     it.title.contains(searchQuery, ignoreCase = true) ||
                     it.description.contains(searchQuery, ignoreCase = true) ||
                     it.location.contains(searchQuery, ignoreCase = true) ||
                     (category?.name?.contains(searchQuery, ignoreCase = true) == true)
             
-            matchesCategory && matchesSearch
+            matchesCategory && matchesCondition && matchesSearch
         }
     }
 
@@ -127,39 +134,66 @@ fun FeedScreen(
         ) {
             // Search bar
             item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    placeholder = {
-                        Text("Search items, categories...", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Search, 
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = {
+                            Text("Search items...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search, 
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                }
                             }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        cursorColor = MaterialTheme.colorScheme.primary
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            cursorColor = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
+
+                    IconButton(
+                        onClick = { showFilterSheet = true },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                if (selectedCondition != null) MaterialTheme.colorScheme.primary 
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                RoundedCornerShape(12.dp)
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.FilterList,
+                            contentDescription = "Filter",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (selectedCondition != null) MaterialTheme.colorScheme.onPrimary 
+                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             // Category chips
@@ -186,7 +220,12 @@ fun FeedScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            if (displayed.isEmpty()) {
+            if (isLoading) {
+                items(3) {
+                    SkeletonItem()
+                    Spacer(Modifier.height(16.dp))
+                }
+            } else if (displayed.isEmpty()) {
                 item {
                     Box(
                         Modifier.fillParentMaxSize(),
@@ -215,7 +254,83 @@ fun FeedScreen(
             }
         }
     }
+
+    if (showFilterSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            sheetState = rememberModalBottomSheetState(),
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    "Filters",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(20.dp))
+                
+                Text("Condition", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(12.dp))
+                
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedCondition == null,
+                        onClick = { selectedCondition = null },
+                        label = { Text("All") }
+                    )
+                    com.example.aski.model.ItemCondition.entries.forEach { condition ->
+                        FilterChip(
+                            selected = selectedCondition == condition,
+                            onClick = { selectedCondition = condition },
+                            label = { Text(condition.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }) }
+                        )
+                    }
+                }
+                
+                Text("Sort by", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(12.dp))
+                
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = true,
+                        onClick = { },
+                        label = { Text("Newest") }
+                    )
+                    FilterChip(
+                        selected = false,
+                        onClick = { },
+                        label = { Text("Nearest") }
+                    )
+                }
+                
+                Spacer(Modifier.height(32.dp))
+                
+                Button(
+                    onClick = { showFilterSheet = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Apply Filters")
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
 }
+
 
 @Composable
 fun ItemCard(
@@ -354,6 +469,43 @@ fun ItemCard(
                         color = Color.White.copy(alpha = 0.8f)
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun SkeletonItem() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+            Column(Modifier.padding(20.dp)) {
+                Box(
+                    Modifier
+                        .width(200.dp)
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+                )
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    Modifier
+                        .width(120.dp)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+                )
             }
         }
     }
