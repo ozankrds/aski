@@ -40,6 +40,8 @@ fun AskiApp(
     LaunchedEffect(currentUser?.id) {
         currentUser?.id?.let {
             itemViewModel.observeUserItems(it)
+            itemViewModel.observeIncomingRequests(it)
+            itemViewModel.observeOutgoingRequests(it)
             chatViewModel.observeChats(it)
             // Save FCM token whenever user logs in
             runCatching {
@@ -62,6 +64,8 @@ fun AskiApp(
     }
 
     val totalUnread by chatViewModel.totalUnread.collectAsState()
+    var ratingTargetUserId by remember { mutableStateOf<String?>(null) }
+    var showRatingDialog by remember { mutableStateOf(false) }
 
     NavHost(navController = navController, startDestination = "splash") {
         composable("splash") {
@@ -107,8 +111,10 @@ fun AskiApp(
         }
         composable(Screen.Feed.route) {
             val items by itemViewModel.filteredItems.collectAsState()
+            val isItemsLoading by itemViewModel.isLoading.collectAsState()
             FeedScreen(
                 items = items,
+                isLoading = isItemsLoading,
                 favoriteIds = currentUser?.favoriteIds ?: emptyList(),
                 totalUnread = totalUnread,
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
@@ -174,6 +180,14 @@ fun AskiApp(
                             }
                         }
                     },
+                    onRequestClick = {
+                        currentUser?.let { user ->
+                            itemViewModel.createRequest(itm, user.id, user.name, ownerName ?: "User") {
+                                navController.navigate(Screen.Requests.route)
+                            }
+                        }
+                    },
+                    onViewRequestsClick = { navController.navigate(Screen.Requests.route) },
                     onToggleFavorite = { authViewModel.toggleFavorite(itm.id) },
                     onUpdateItem = { updatedItem ->
                         itemViewModel.updateItem(updatedItem)
@@ -237,6 +251,7 @@ fun AskiApp(
                 profileError = profileError,
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
                 onMessagesClick = { navController.navigate(Screen.ChatList.route) },
+                onRequestsClick = { navController.navigate(Screen.Requests.route) },
                 onBackClick = { navController.popBackStack() },
                 onLogoutClick = {
                     authViewModel.logout()
@@ -291,6 +306,7 @@ fun AskiApp(
                     currentUserId = user.id,
                     otherUserName = otherUser?.name,
                     onSendMessage = { content -> chatViewModel.sendMessage(chatId, user.id, content) },
+                    onRateUser = { rating -> otherUserId?.let { authViewModel.rateUser(it, rating) } },
                     onBackClick = { navController.popBackStack() }
                 )
             }
@@ -315,5 +331,44 @@ fun AskiApp(
                 onBackClick = { navController.popBackStack() }
             )
         }
+        composable(Screen.Requests.route) {
+            val incomingRequests by itemViewModel.incomingRequests.collectAsState()
+            val outgoingRequests by itemViewModel.outgoingRequests.collectAsState()
+            RequestsScreen(
+                incomingRequests = incomingRequests,
+                outgoingRequests = outgoingRequests,
+                onAcceptRequest = { requestId -> 
+                    itemViewModel.updateRequestStatus(requestId, com.example.aski.model.RequestStatus.ACCEPTED)
+                },
+                onRejectRequest = { requestId -> 
+                    itemViewModel.updateRequestStatus(requestId, com.example.aski.model.RequestStatus.REJECTED)
+                },
+                onCompleteRequest = { requestId -> 
+                    val request = outgoingRequests.find { it.id == requestId }
+                    itemViewModel.updateRequestStatus(requestId, com.example.aski.model.RequestStatus.COMPLETED)
+                    request?.ownerId?.let { ownerId ->
+                        ratingTargetUserId = ownerId
+                        showRatingDialog = true
+                    }
+                },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+    }
+
+    if (showRatingDialog && ratingTargetUserId != null) {
+        var rating by remember { mutableIntStateOf(5) }
+        com.example.aski.ui.RatingDialog(
+            targetUserName = "the owner",
+            onRatingSelected = { r ->
+                authViewModel.rateUser(ratingTargetUserId!!, r)
+                showRatingDialog = false
+                ratingTargetUserId = null
+            },
+            onDismiss = {
+                showRatingDialog = false
+                ratingTargetUserId = null
+            }
+        )
     }
 }
