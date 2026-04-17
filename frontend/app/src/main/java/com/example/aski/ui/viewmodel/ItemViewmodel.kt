@@ -32,7 +32,7 @@ class ItemViewModel(
 
     private fun observeFeed() {
         viewModelScope.launch {
-            repo.observeAvailableItems().collect { _feedItems.value = it }
+            repo.observeFeedItems().collect { _feedItems.value = it }
         }
     }
 
@@ -50,22 +50,21 @@ class ItemViewModel(
         description: String,
         categoryId: Int,
         condition: ItemCondition,
+        location: String,
         imageUris: List<Uri>,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
             try {
-                val imageUrls = imageUris.map { uri ->
-                    repo.uploadImage(uri).getOrThrow()
-                }
-
+                val imageUrls = imageUris.map { uri -> repo.uploadImage(uri).getOrThrow() }
                 val item = Item(
                     ownerId = ownerId,
                     title = title,
                     description = description,
                     categoryId = categoryId,
                     condition = condition,
+                    location = location,
                     imageUrls = imageUrls
                 )
                 repo.addItem(item).getOrThrow()
@@ -80,5 +79,17 @@ class ItemViewModel(
 
     fun updateItem(item: Item) = viewModelScope.launch { repo.updateItem(item) }
 
+    fun deleteItem(itemId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repo.deleteItem(itemId).onSuccess { onSuccess() }
+        }
+    }
+
+    fun reportItem(itemId: String, reporterId: String, reason: String) {
+        viewModelScope.launch { repo.reportItem(itemId, reporterId, reason) }
+    }
+
     suspend fun getItem(itemId: String) = repo.getItem(itemId)
+
+    suspend fun getUserItems(userId: String) = repo.getUserItems(userId)
 }

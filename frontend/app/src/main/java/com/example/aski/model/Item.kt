@@ -11,9 +11,9 @@ data class Item(
     val description: String = "",
     val condition: ItemCondition = ItemCondition.NEW,
     val status: ItemStatus = ItemStatus.AVAILABLE,
+    val location: String = "",
     val imageUrls: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis()
 ) {
-    // Firestore requires no-arg constructor
     constructor() : this(id = "")
 }
