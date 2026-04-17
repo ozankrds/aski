@@ -91,4 +91,22 @@ class AuthRepository(
             ref.update("favoriteIds", FieldValue.arrayRemove(itemId)).await()
         }
     }
+
+    suspend fun rateUser(userId: String, rating: Int): Result<Unit> = try {
+        val userDoc = db.collection("users").document(userId).get().await()
+        val user = userDoc.toObject(User::class.java) ?: throw Exception("User not found")
+        
+        val newRatingCount = user.ratingCount + 1
+        val newRating = ((user.rating * user.ratingCount) + rating) / newRatingCount
+        
+        db.collection("users").document(userId).update(
+            mapOf(
+                "rating" to newRating,
+                "ratingCount" to newRatingCount
+            )
+        ).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

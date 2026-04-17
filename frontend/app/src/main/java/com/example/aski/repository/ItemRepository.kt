@@ -89,4 +89,40 @@ class ItemRepository(
     suspend fun getUserItems(userId: String): List<Item> =
         col.whereEqualTo("ownerId", userId).get().await().toObjects(Item::class.java)
             .sortedByDescending { it.createdAt }
+
+    // Request Management
+    fun observeIncomingRequests(ownerId: String): Flow<List<com.example.aski.model.ItemRequest>> = callbackFlow {
+        val listener = db.collection("requests")
+            .whereEqualTo("ownerId", ownerId)
+            .addSnapshotListener { snap, err ->
+                if (err != null) { close(err); return@addSnapshotListener }
+                val sorted = snap?.toObjects(com.example.aski.model.ItemRequest::class.java)
+                    ?.sortedByDescending { it.createdAt }
+                    ?: emptyList()
+                trySend(sorted)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    fun observeOutgoingRequests(requesterId: String): Flow<List<com.example.aski.model.ItemRequest>> = callbackFlow {
+        val listener = db.collection("requests")
+            .whereEqualTo("requesterId", requesterId)
+            .addSnapshotListener { snap, err ->
+                if (err != null) { close(err); return@addSnapshotListener }
+                val sorted = snap?.toObjects(com.example.aski.model.ItemRequest::class.java)
+                    ?.sortedByDescending { it.createdAt }
+                    ?: emptyList()
+                trySend(sorted)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun createRequest(request: com.example.aski.model.ItemRequest): Result<Unit> = runCatching {
+        val ref = db.collection("requests").document()
+        ref.set(request.copy(id = ref.id)).await()
+    }
+
+    suspend fun updateRequestStatus(requestId: String, status: com.example.aski.model.RequestStatus): Result<Unit> = runCatching {
+        db.collection("requests").document(requestId).update("status", status.name).await()
+    }
 }
