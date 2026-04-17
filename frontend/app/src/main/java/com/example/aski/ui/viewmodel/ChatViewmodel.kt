@@ -27,7 +27,14 @@ class ChatViewModel(
     private val _userNames = MutableStateFlow<Map<String, String>>(emptyMap())
     val userNames: StateFlow<Map<String, String>> = _userNames
 
+    private var currentUserId: String = ""
+
+    val totalUnread: StateFlow<Int> = _chats.map { chats ->
+        chats.sumOf { it.unreadCounts[currentUserId] ?: 0 }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     fun observeChats(userId: String) {
+        currentUserId = userId
         viewModelScope.launch {
             repo.observeUserChats(userId).collect { _chats.value = it }
         }
@@ -39,18 +46,20 @@ class ChatViewModel(
         }
     }
 
+    fun markAsRead(chatId: String, userId: String) {
+        viewModelScope.launch { repo.markAsRead(chatId, userId) }
+    }
+
     fun fetchOtherUser(userId: String) {
         viewModelScope.launch {
-            val user = authRepo.getUserById(userId)
-            _otherUser.value = user
+            _otherUser.value = authRepo.getUserById(userId)
         }
     }
 
     fun fetchUserName(userId: String) {
         if (_userNames.value.containsKey(userId)) return
         viewModelScope.launch {
-            val user = authRepo.getUserById(userId)
-            user?.name?.let { name ->
+            authRepo.getUserById(userId)?.name?.let { name ->
                 _userNames.value = _userNames.value + (userId to name)
             }
         }
@@ -60,7 +69,11 @@ class ChatViewModel(
         repo.getOrCreateChat(itemId, requesterId, ownerId).getOrNull()
 
     fun sendMessage(chatId: String, senderId: String, content: String) {
-        viewModelScope.launch { repo.sendMessage(chatId, senderId, content) }
+        viewModelScope.launch {
+            val chat = _chats.value.find { it.id == chatId }
+            val participants = chat?.participants ?: listOf(senderId)
+            repo.sendMessage(chatId, senderId, content, participants)
+        }
     }
 
     suspend fun getChat(chatId: String) = repo.getChat(chatId)

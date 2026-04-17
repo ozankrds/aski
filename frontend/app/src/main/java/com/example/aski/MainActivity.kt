@@ -11,9 +11,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val deepLinkItemId = intent?.data?.let { uri ->
+            if (uri.scheme == "aski" && uri.host == "item") uri.pathSegments.firstOrNull()
+            else null
+        }
+        val chatIdFromNotification = intent?.getStringExtra("chatId")
+
         setContent {
             AskiTheme {
-                AskiApp()
+                AskiApp(
+                    deepLinkItemId = deepLinkItemId,
+                    deepLinkChatId = chatIdFromNotification
+                )
             }
         }
     }

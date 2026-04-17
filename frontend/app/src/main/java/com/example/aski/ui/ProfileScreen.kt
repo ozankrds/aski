@@ -1,5 +1,9 @@
 package com.example.aski.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,8 +13,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,12 +26,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.aski.model.Item
 import com.example.aski.model.ItemStatus
 import com.example.aski.model.User
+import com.example.aski.ui.theme.AskiOnBgVariant
+import com.example.aski.ui.theme.AskiSuccess
+import com.example.aski.ui.theme.AskiWarning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,12 +43,26 @@ fun ProfileScreen(
     user: User?,
     userItems: List<Item>,
     favoriteItems: List<Item>,
+    isLoading: Boolean,
+    profileError: String?,
     onItemClick: (String) -> Unit,
     onMessagesClick: () -> Unit,
     onBackClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    onUpdateProfile: (name: String, newPassword: String?, currentPassword: String?, photoUri: Uri?) -> Unit,
+    onClearError: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var isEditing by remember { mutableStateOf(false) }
+    var editName by remember(user) { mutableStateOf(user?.name ?: "") }
+    var editPassword by remember { mutableStateOf("") }
+    var currentPassword by remember { mutableStateOf("") }
+    var photoUri by remember { mutableStateOf<Uri?>(null) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri -> if (uri != null) photoUri = uri }
+    )
 
     val rawItems = if (selectedTab == 0) userItems else favoriteItems
     // Sort: Available & Reserved first, Given last. Within those, newest first.
@@ -59,6 +84,29 @@ fun ProfileScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            if (isEditing) {
+                                onUpdateProfile(editName, editPassword.ifBlank { null }, currentPassword.ifBlank { null }, photoUri)
+                                editPassword = ""
+                                currentPassword = ""
+                                photoUri = null
+                                isEditing = false
+                            } else {
+                                isEditing = true
+                            }
+                        },
+                        enabled = !isLoading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(
+                                if (isEditing) Icons.Default.Save else Icons.Default.Edit,
+                                contentDescription = if (isEditing) "Save" else "Edit profile"
+                            )
+                        }
+                    }
                     IconButton(onClick = onLogoutClick) {
                         Icon(Icons.Default.Logout, contentDescription = "Logout",
                             tint = MaterialTheme.colorScheme.error)
@@ -87,29 +135,95 @@ fun ProfileScreen(
                         modifier = Modifier
                             .size(88.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                            .then(if (isEditing) Modifier.clickable {
+                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            } else Modifier),
                         contentAlignment = Alignment.Center
                     ) {
-                        val initial = user?.name?.trim()?.takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
-                        Text(
-                            initial,
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        val photoSource: Any? = photoUri ?: user?.photoUrl?.ifBlank { null }
+                        if (photoSource != null) {
+                            AsyncImage(
+                                model = photoSource,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            val initial = user?.name?.trim()?.takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
+                            Text(
+                                initial,
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (isEditing) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.4f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = Color.White)
+                            }
+                        }
                     }
 
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        user?.name?.ifBlank { "Unknown" } ?: "Unknown",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White
-                    )
-                    Text(
-                        user?.email ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+
+                    if (isEditing) {
+                        OutlinedTextField(
+                            value = editName,
+                            onValueChange = { editName = it },
+                            label = { Text("Name") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = authFieldColors()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = editPassword,
+                            onValueChange = { editPassword = it },
+                            label = { Text("New Password (leave blank to keep)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            visualTransformation = PasswordVisualTransformation(),
+                            colors = authFieldColors()
+                        )
+                        if (editPassword.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = currentPassword,
+                                onValueChange = { currentPassword = it },
+                                label = { Text("Current Password (required to change)") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                visualTransformation = PasswordVisualTransformation(),
+                                colors = authFieldColors()
+                            )
+                        }
+                        if (!profileError.isNullOrBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(profileError, color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.clickable { onClearError() })
+                        }
+                    } else {
+                        Text(
+                            user?.name?.ifBlank { "Unknown" } ?: "Unknown",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            user?.email ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
                     Spacer(Modifier.height(20.dp))
 
@@ -197,7 +311,7 @@ fun ProfileScreen(
 @Composable
 fun StatItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
         Text(label, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -206,9 +320,9 @@ fun StatItem(label: String, value: String) {
 @Composable
 fun ProfileItemRow(item: Item, onClick: () -> Unit) {
     val statusColor = when (item.status) {
-        ItemStatus.AVAILABLE -> Color(0xFF2ECC71)
-        ItemStatus.RESERVED -> Color(0xFFF39C12)
-        ItemStatus.GIVEN -> Color(0xFF666666)
+        ItemStatus.AVAILABLE -> AskiSuccess
+        ItemStatus.RESERVED -> AskiWarning
+        ItemStatus.GIVEN -> AskiOnBgVariant
     }
 
     Row(
@@ -238,7 +352,7 @@ fun ProfileItemRow(item: Item, onClick: () -> Unit) {
         Spacer(Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(item.title, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1)
+            Text(item.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground, maxLines = 1)
             Text(item.condition.name.replace("_", " "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
