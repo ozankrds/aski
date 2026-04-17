@@ -96,4 +96,11 @@ class AuthViewModel(
     suspend fun getUserName(userId: String): String? = repo.getUserById(userId)?.name
 
     suspend fun getUserById(userId: String): User? = repo.getUserById(userId)
+
+    fun rateUser(userId: String, rating: Int, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            repo.rateUser(userId, rating)
+            onComplete()
+        }
+    }
 }

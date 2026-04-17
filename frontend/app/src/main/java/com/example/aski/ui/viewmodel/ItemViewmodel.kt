@@ -19,26 +19,63 @@ class ItemViewModel(
     private val _userItems = MutableStateFlow<List<Item>>(emptyList())
     val userItems: StateFlow<List<Item>> = _userItems
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    private val _incomingRequests = MutableStateFlow<List<com.example.aski.model.ItemRequest>>(emptyList())
+    val incomingRequests: StateFlow<List<com.example.aski.model.ItemRequest>> = _incomingRequests
+
+    private val _outgoingRequests = MutableStateFlow<List<com.example.aski.model.ItemRequest>>(emptyList())
+    val outgoingRequests: StateFlow<List<com.example.aski.model.ItemRequest>> = _outgoingRequests
+
     private val _selectedCategoryId = MutableStateFlow(0)
     val selectedCategoryId: StateFlow<Int> = _selectedCategoryId
 
-    val filteredItems: StateFlow<List<Item>> = combine(_feedItems, _selectedCategoryId) { items, cat ->
-        if (cat == 0) items else items.filter { it.categoryId == cat }
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    private val _selectedCondition = MutableStateFlow<ItemCondition?>(null)
+    val selectedCondition: StateFlow<ItemCondition?> = _selectedCondition
+
+    val filteredItems: StateFlow<List<Item>> = combine(
+        _feedItems, _selectedCategoryId, _selectedCondition, _searchQuery
+    ) { items, cat, cond, query ->
+        items.filter { item ->
+            val matchesCategory = cat == 0 || item.categoryId == cat
+            val matchesCondition = cond == null || item.condition == cond
+            val matchesSearch = query.isBlank() ||
+                    item.title.contains(query, ignoreCase = true) ||
+                    item.description.contains(query, ignoreCase = true) ||
+                    item.location.contains(query, ignoreCase = true)
+            
+            matchesCategory && matchesCondition && matchesSearch
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setSearchQuery(query: String) { _searchQuery.value = query }
+    fun setCondition(condition: ItemCondition?) { _selectedCondition.value = condition }
 
     init {
         observeFeed()
     }
 
     private fun observeFeed() {
+        _isLoading.value = true
         viewModelScope.launch {
-            repo.observeFeedItems().collect { _feedItems.value = it }
+            repo.observeFeedItems().collect { 
+                _feedItems.value = it
+                _isLoading.value = false
+            }
         }
     }
 
     fun observeUserItems(userId: String) {
+        _isLoading.value = true
         viewModelScope.launch {
-            repo.observeUserItems(userId).collect { _userItems.value = it }
+            repo.observeUserItems(userId).collect { 
+                _userItems.value = it
+                _isLoading.value = false
+            }
         }
     }
 
@@ -92,4 +129,45 @@ class ItemViewModel(
     suspend fun getItem(itemId: String) = repo.getItem(itemId)
 
     suspend fun getUserItems(userId: String) = repo.getUserItems(userId)
+
+    // Request Flow
+    fun observeIncomingRequests(ownerId: String) {
+        viewModelScope.launch {
+            repo.observeIncomingRequests(ownerId).collect { _incomingRequests.value = it }
+        }
+    }
+
+    fun observeOutgoingRequests(requesterId: String) {
+        viewModelScope.launch {
+            repo.observeOutgoingRequests(requesterId).collect { _outgoingRequests.value = it }
+        }
+    }
+
+    fun createRequest(
+        item: Item,
+        requesterId: String,
+        requesterName: String,
+        ownerName: String,
+        onSuccess: () -> Unit = {}
+    ) {
+        val request = com.example.aski.model.ItemRequest(
+            itemId = item.id,
+            itemTitle = item.title,
+            itemImageUrl = item.imageUrls.firstOrNull() ?: "",
+            requesterId = requesterId,
+            requesterName = requesterName,
+            ownerId = item.ownerId,
+            ownerName = ownerName,
+            status = com.example.aski.model.RequestStatus.PENDING
+        )
+        viewModelScope.launch {
+            repo.createRequest(request).onSuccess { onSuccess() }
+        }
+    }
+
+    fun updateRequestStatus(requestId: String, status: com.example.aski.model.RequestStatus) {
+        viewModelScope.launch {
+            repo.updateRequestStatus(requestId, status)
+        }
+    }
 }
