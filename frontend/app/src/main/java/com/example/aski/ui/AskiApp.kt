@@ -1,6 +1,13 @@
 package com.example.aski.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -11,35 +18,77 @@ import com.example.aski.ui.viewmodel.AuthState
 import com.example.aski.ui.viewmodel.AuthViewModel
 import com.example.aski.ui.viewmodel.ChatViewModel
 import com.example.aski.ui.viewmodel.ItemViewModel
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @Composable
-fun AskiApp() {
+fun AskiApp(
+    deepLinkItemId: String? = null,
+    deepLinkChatId: String? = null
+) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val itemViewModel: ItemViewModel = viewModel()
     val chatViewModel: ChatViewModel = viewModel()
 
     val authState by authViewModel.authState.collectAsState()
+    val profileError by authViewModel.profileError.collectAsState()
     val currentUser = (authState as? AuthState.Authenticated)?.user
+    val isProfileLoading = authState is AuthState.Loading
 
-    // Kullanıcı giriş yapınca item/chat observer'larını başlat
     LaunchedEffect(currentUser?.id) {
         currentUser?.id?.let {
             itemViewModel.observeUserItems(it)
             chatViewModel.observeChats(it)
+            // Save FCM token whenever user logs in
+            runCatching {
+                val token = FirebaseMessaging.getInstance().token.await()
+                authViewModel.saveFcmToken(token)
+            }
         }
     }
 
-    val startDestination = Screen.Feed.route
+    // Handle deep links after nav is ready
+    LaunchedEffect(deepLinkItemId) {
+        if (deepLinkItemId != null) {
+            navController.navigate(Screen.ItemDetail.createRoute(deepLinkItemId))
+        }
+    }
+    LaunchedEffect(deepLinkChatId) {
+        if (deepLinkChatId != null) {
+            navController.navigate(Screen.Chat.createRoute(deepLinkChatId))
+        }
+    }
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    val totalUnread by chatViewModel.totalUnread.collectAsState()
+
+    NavHost(navController = navController, startDestination = "splash") {
+        composable("splash") {
+            Box(
+                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+            LaunchedEffect(authState) {
+                when (authState) {
+                    is AuthState.Loading -> {}
+                    is AuthState.Authenticated -> navController.navigate(Screen.Feed.route) {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                    else -> navController.navigate(Screen.Login.route) {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            }
+        }
         composable(Screen.Login.route) {
             LoginScreen(
                 viewModel = authViewModel,
                 onLoginSuccess = {
                     navController.navigate(Screen.Feed.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 onNavigateToSignup = { navController.navigate(Screen.Signup.route) }
@@ -61,6 +110,7 @@ fun AskiApp() {
             FeedScreen(
                 items = items,
                 favoriteIds = currentUser?.favoriteIds ?: emptyList(),
+                totalUnread = totalUnread,
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
                 onToggleFavorite = { authViewModel.toggleFavorite(it) },
                 onCreateListingClick = {
@@ -81,28 +131,36 @@ fun AskiApp() {
             val scope = rememberCoroutineScope()
             val feedItems by itemViewModel.feedItems.collectAsState()
             val userItems by itemViewModel.userItems.collectAsState()
-            
-            // Observe item changes in real-time by finding it in the observed flows
+
             val item = remember(itemId, feedItems, userItems) {
                 feedItems.find { it.id == itemId } ?: userItems.find { it.id == itemId }
             }
-            
             var localItem by remember { mutableStateOf<com.example.aski.model.Item?>(null) }
+            var ownerName by remember { mutableStateOf<String?>(null) }
 
             LaunchedEffect(itemId) {
-                if (item == null) {
-                    localItem = itemViewModel.getItem(itemId)
-                }
+                if (item == null) localItem = itemViewModel.getItem(itemId)
             }
 
             val displayItem = item ?: localItem
 
+            LaunchedEffect(displayItem?.ownerId) {
+                displayItem?.ownerId?.let { ownerId ->
+                    ownerName = authViewModel.getUserName(ownerId)
+                }
+            }
+
             displayItem?.let { itm ->
+                val isOwner = itm.ownerId == currentUser?.id
                 ItemDetailScreen(
                     item = itm,
-                    isOwner = itm.ownerId == currentUser?.id,
+                    isOwner = isOwner,
                     isFavorite = currentUser?.favoriteIds?.contains(itm.id) == true,
+                    ownerName = if (isOwner) null else ownerName,
                     onBackClick = { navController.popBackStack() },
+                    onOwnerClick = if (!isOwner) {
+                        { navController.navigate(Screen.UserProfile.createRoute(itm.ownerId)) }
+                    } else null,
                     onChatClick = { ownerId ->
                         if (currentUser == null) {
                             navController.navigate(Screen.Login.route)
@@ -110,7 +168,6 @@ fun AskiApp() {
                             scope.launch {
                                 val chat = chatViewModel.getOrCreateChat(itm.id, currentUser.id, ownerId)
                                 if (chat != null) {
-                                    // Send the interest message
                                     chatViewModel.sendMessage(chat.id, currentUser.id, "I'm interested in ${itm.title}")
                                     navController.navigate(Screen.Chat.createRoute(chat.id))
                                 }
@@ -120,18 +177,27 @@ fun AskiApp() {
                     onToggleFavorite = { authViewModel.toggleFavorite(itm.id) },
                     onUpdateItem = { updatedItem ->
                         itemViewModel.updateItem(updatedItem)
-                        // If it's a local fetch, update it too
                         if (item == null) localItem = updatedItem
-                    }
+                    },
+                    onDeleteItem = if (isOwner) {
+                        {
+                            itemViewModel.deleteItem(itm.id) {
+                                navController.popBackStack()
+                            }
+                        }
+                    } else null,
+                    onReportItem = if (!isOwner && currentUser != null) {
+                        { reason -> itemViewModel.reportItem(itm.id, currentUser.id, reason) }
+                    } else null
                 )
             }
         }
         composable(Screen.CreateListing.route) {
             var isUploading by remember { mutableStateOf(false) }
             var errorMessage by remember { mutableStateOf<String?>(null) }
-            
+
             CreateListingScreen(
-                onPostItem = { title, desc, catId, cond, uris ->
+                onPostItem = { title, desc, catId, cond, location, uris ->
                     currentUser?.id?.let { uid ->
                         isUploading = true
                         errorMessage = null
@@ -141,6 +207,7 @@ fun AskiApp() {
                             description = desc,
                             categoryId = catId,
                             condition = cond,
+                            location = location,
                             imageUris = uris,
                             onSuccess = {
                                 isUploading = false
@@ -161,11 +228,13 @@ fun AskiApp() {
         composable(Screen.Profile.route) {
             val userItems by itemViewModel.userItems.collectAsState()
             val allItems by itemViewModel.feedItems.collectAsState()
-            
+
             ProfileScreen(
                 user = currentUser,
                 userItems = userItems,
                 favoriteItems = allItems.filter { currentUser?.favoriteIds?.contains(it.id) == true },
+                isLoading = isProfileLoading,
+                profileError = profileError,
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
                 onMessagesClick = { navController.navigate(Screen.ChatList.route) },
                 onBackClick = { navController.popBackStack() },
@@ -174,7 +243,11 @@ fun AskiApp() {
                     navController.navigate(Screen.Feed.route) {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
+                onUpdateProfile = { name, newPassword, currentPassword, photoUri ->
+                    authViewModel.updateProfile(name, newPassword, currentPassword, photoUri)
+                },
+                onClearError = { authViewModel.clearProfileError() }
             )
         }
         composable(Screen.ChatList.route) {
@@ -201,6 +274,7 @@ fun AskiApp() {
 
             LaunchedEffect(chatId) {
                 chatViewModel.observeMessages(chatId)
+                currentUser?.id?.let { chatViewModel.markAsRead(chatId, it) }
             }
 
             currentUser?.let { user ->
@@ -220,6 +294,26 @@ fun AskiApp() {
                     onBackClick = { navController.popBackStack() }
                 )
             }
+        }
+        composable(
+            route = Screen.UserProfile.route,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
+            var targetUser by remember { mutableStateOf<com.example.aski.model.User?>(null) }
+            var targetItems by remember { mutableStateOf<List<com.example.aski.model.Item>>(emptyList()) }
+
+            LaunchedEffect(userId) {
+                targetUser = authViewModel.getUserById(userId)
+                targetItems = itemViewModel.getUserItems(userId)
+            }
+
+            UserProfileScreen(
+                user = targetUser,
+                items = targetItems,
+                onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
+                onBackClick = { navController.popBackStack() }
+            )
         }
     }
 }

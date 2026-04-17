@@ -36,11 +36,7 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFF0D0B1E), Color(0xFF0A0A0A))
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -264,13 +260,13 @@ fun SignupScreen(
 
 @Composable
 fun authFieldColors() = OutlinedTextFieldDefaults.colors(
-    unfocusedContainerColor = Color(0xFF1E1E1E),
-    focusedContainerColor = Color(0xFF1E1E1E),
-    unfocusedBorderColor = Color(0xFF3A3A3A),
-    focusedBorderColor = Color(0xFF6C63FF),
-    unfocusedLabelColor = Color(0xFF888888),
-    focusedLabelColor = Color(0xFF6C63FF),
-    cursorColor = Color(0xFF6C63FF),
-    unfocusedTextColor = Color.White,
-    focusedTextColor = Color.White
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    unfocusedBorderColor = Color.Transparent,
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    focusedLabelColor = MaterialTheme.colorScheme.primary,
+    cursorColor = MaterialTheme.colorScheme.primary,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+    focusedTextColor = MaterialTheme.colorScheme.onSurface
 )
