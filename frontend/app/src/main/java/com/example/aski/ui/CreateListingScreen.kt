@@ -31,13 +31,14 @@ import com.example.aski.model.categories
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CreateListingScreen(
-    onPostItem: (String, String, Int, ItemCondition, List<Uri>) -> Unit,
+    onPostItem: (String, String, Int, ItemCondition, String, List<Uri>) -> Unit,
     onBackClick: () -> Unit,
     isUploading: Boolean = false,
     errorMessage: String? = null
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf(categories.first { it.id != 0 }.id) }
     var selectedCondition by remember { mutableStateOf(ItemCondition.USED_GOOD) }
     val imageUris = remember { mutableStateListOf<Uri>() }
@@ -126,7 +127,13 @@ fun CreateListingScreen(
                 label = { Text("Title") },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                )
             )
 
             OutlinedTextField(
@@ -135,7 +142,28 @@ fun CreateListingScreen(
                 label = { Text("Description") },
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 3
+                minLines = 3,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                )
+            )
+
+            OutlinedTextField(
+                value = location,
+                onValueChange = { location = it },
+                label = { Text("Location (city / neighborhood)") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                )
             )
 
             // Category Dropdown
@@ -196,7 +224,7 @@ fun CreateListingScreen(
             Button(
                 onClick = {
                     if (title.isBlank() || description.isBlank()) return@Button
-                    onPostItem(title, description, selectedCategoryId, selectedCondition, imageUris.toList())
+                    onPostItem(title, description, selectedCategoryId, selectedCondition, location.trim(), imageUris.toList())
                 },
                 enabled = title.isNotBlank() && description.isNotBlank() && !isUploading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
