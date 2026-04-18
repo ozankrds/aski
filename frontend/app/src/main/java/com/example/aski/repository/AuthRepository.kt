@@ -109,4 +109,16 @@ class AuthRepository(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    suspend fun searchUsers(query: String): List<User> = runCatching {
+        if (query.isBlank()) return emptyList()
+        
+        // Firestore doesn't support case-insensitive native queries easily.
+        // We fetch all users and filter locally for a true case-insensitive experience.
+        // For production with many users, we would store a 'nameLower' field in Firestore.
+        db.collection("users")
+            .get().await()
+            .toObjects(User::class.java)
+            .filter { it.name.contains(query, ignoreCase = true) }
+    }.getOrDefault(emptyList())
 }

@@ -31,6 +31,7 @@ fun AskiApp(
     val authViewModel: AuthViewModel = viewModel()
     val itemViewModel: ItemViewModel = viewModel()
     val chatViewModel: ChatViewModel = viewModel()
+    val scope = rememberCoroutineScope()
 
     val authState by authViewModel.authState.collectAsState()
     val profileError by authViewModel.profileError.collectAsState()
@@ -112,6 +113,8 @@ fun AskiApp(
         composable(Screen.Feed.route) {
             val items by itemViewModel.filteredItems.collectAsState()
             val isItemsLoading by itemViewModel.isLoading.collectAsState()
+            val searchUsersResults by authViewModel.searchResults.collectAsState()
+
             FeedScreen(
                 items = items,
                 isLoading = isItemsLoading,
@@ -126,7 +129,11 @@ fun AskiApp(
                 onProfileClick = {
                     if (currentUser == null) navController.navigate(Screen.Login.route)
                     else navController.navigate(Screen.Profile.route)
-                }
+                },
+                onSearchUsers = { authViewModel.searchUsers(it) },
+                searchUsersResults = searchUsersResults,
+                onUserClick = { userId -> navController.navigate(Screen.UserProfile.createRoute(userId)) },
+                currentUser = currentUser
             )
         }
         composable(
@@ -134,9 +141,10 @@ fun AskiApp(
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
-            val scope = rememberCoroutineScope()
-            val feedItems by itemViewModel.feedItems.collectAsState()
+            val feedItems by itemViewModel.filteredItems.collectAsState()
             val userItems by itemViewModel.userItems.collectAsState()
+            val outgoingRequests by itemViewModel.outgoingRequests.collectAsState()
+            val itemRequestsMap by itemViewModel.itemRequests.collectAsState()
 
             val item = remember(itemId, feedItems, userItems) {
                 feedItems.find { it.id == itemId } ?: userItems.find { it.id == itemId }
@@ -146,6 +154,7 @@ fun AskiApp(
 
             LaunchedEffect(itemId) {
                 if (item == null) localItem = itemViewModel.getItem(itemId)
+                itemViewModel.observeItemRequests(itemId)
             }
 
             val displayItem = item ?: localItem
@@ -158,11 +167,19 @@ fun AskiApp(
 
             displayItem?.let { itm ->
                 val isOwner = itm.ownerId == currentUser?.id
+                val userRequest = outgoingRequests.find { it.itemId == itm.id && it.requesterId == currentUser?.id }
+                val hasRequested = userRequest != null && userRequest.status != com.example.aski.model.RequestStatus.REJECTED
+                val isRequestAccepted = userRequest?.status == com.example.aski.model.RequestStatus.ACCEPTED
+                val currentRequestCount = itemRequestsMap[itm.id]?.size ?: 0
+
                 ItemDetailScreen(
                     item = itm,
                     isOwner = isOwner,
                     isFavorite = currentUser?.favoriteIds?.contains(itm.id) == true,
                     ownerName = if (isOwner) null else ownerName,
+                    hasRequested = hasRequested,
+                    isRequestAccepted = isRequestAccepted,
+                    requestCount = currentRequestCount,
                     onBackClick = { navController.popBackStack() },
                     onOwnerClick = if (!isOwner) {
                         { navController.navigate(Screen.UserProfile.createRoute(itm.ownerId)) }
@@ -182,9 +199,12 @@ fun AskiApp(
                     },
                     onRequestClick = {
                         currentUser?.let { user ->
-                            itemViewModel.createRequest(itm, user.id, user.name, ownerName ?: "User") {
-                                navController.navigate(Screen.Requests.route)
-                            }
+                            itemViewModel.createRequest(itm, user.id, user.name, ownerName ?: "User")
+                        }
+                    },
+                    onCancelRequestClick = {
+                        currentUser?.let { user ->
+                            itemViewModel.cancelRequest(itm.id, user.id)
                         }
                     },
                     onViewRequestsClick = { navController.navigate(Screen.Requests.route) },
@@ -242,11 +262,13 @@ fun AskiApp(
         composable(Screen.Profile.route) {
             val userItems by itemViewModel.userItems.collectAsState()
             val allItems by itemViewModel.feedItems.collectAsState()
+            val outgoingRequests by itemViewModel.outgoingRequests.collectAsState()
 
             ProfileScreen(
                 user = currentUser,
                 userItems = userItems,
                 favoriteItems = allItems.filter { currentUser?.favoriteIds?.contains(it.id) == true },
+                sentRequests = outgoingRequests,
                 isLoading = isProfileLoading,
                 profileError = profileError,
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
@@ -328,28 +350,31 @@ fun AskiApp(
                 user = targetUser,
                 items = targetItems,
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
+                onChatClick = { ownerId ->
+                    if (currentUser == null) {
+                        navController.navigate(Screen.Login.route)
+                    } else {
+                        scope.launch {
+                            val itemId = targetItems.firstOrNull()?.id ?: ""
+                            val chat = chatViewModel.getOrCreateChat(itemId, currentUser.id, ownerId)
+                            if (chat != null) {
+                                navController.navigate(Screen.Chat.createRoute(chat.id))
+                            }
+                        }
+                    }
+                },
                 onBackClick = { navController.popBackStack() }
             )
         }
         composable(Screen.Requests.route) {
             val incomingRequests by itemViewModel.incomingRequests.collectAsState()
-            val outgoingRequests by itemViewModel.outgoingRequests.collectAsState()
             RequestsScreen(
                 incomingRequests = incomingRequests,
-                outgoingRequests = outgoingRequests,
                 onAcceptRequest = { requestId -> 
                     itemViewModel.updateRequestStatus(requestId, com.example.aski.model.RequestStatus.ACCEPTED)
                 },
                 onRejectRequest = { requestId -> 
                     itemViewModel.updateRequestStatus(requestId, com.example.aski.model.RequestStatus.REJECTED)
-                },
-                onCompleteRequest = { requestId -> 
-                    val request = outgoingRequests.find { it.id == requestId }
-                    itemViewModel.updateRequestStatus(requestId, com.example.aski.model.RequestStatus.COMPLETED)
-                    request?.ownerId?.let { ownerId ->
-                        ratingTargetUserId = ownerId
-                        showRatingDialog = true
-                    }
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -357,7 +382,6 @@ fun AskiApp(
     }
 
     if (showRatingDialog && ratingTargetUserId != null) {
-        var rating by remember { mutableIntStateOf(5) }
         com.example.aski.ui.RatingDialog(
             targetUserName = "the owner",
             onRatingSelected = { r ->

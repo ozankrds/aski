@@ -46,10 +46,14 @@ fun ItemDetailScreen(
     isOwner: Boolean,
     isFavorite: Boolean,
     ownerName: String?,
+    hasRequested: Boolean = false,
+    isRequestAccepted: Boolean = false,
+    requestCount: Int = 0,
     onBackClick: () -> Unit,
     onChatClick: (String) -> Unit,
     onOwnerClick: (() -> Unit)?,
     onRequestClick: (() -> Unit)? = null,
+    onCancelRequestClick: (() -> Unit)? = null,
     onViewRequestsClick: (() -> Unit)? = null,
     onToggleFavorite: () -> Unit,
     onUpdateItem: (Item) -> Unit,
@@ -64,6 +68,7 @@ fun ItemDetailScreen(
     var showConfirmGivenDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
+    var showCancelAcceptedDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val categoryName = categories.find { it.id == item.categoryId }?.name ?: "Other"
@@ -71,6 +76,23 @@ fun ItemDetailScreen(
         ItemStatus.AVAILABLE -> AskiSuccess
         ItemStatus.RESERVED -> AskiWarning
         ItemStatus.GIVEN -> AskiOnBgVariant
+    }
+
+    if (showCancelAcceptedDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelAcceptedDialog = false },
+            title = { Text("Cancel Request") },
+            text = { Text("Are you sure you want to cancel request?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onCancelRequestClick?.invoke()
+                    showCancelAcceptedDialog = false
+                }) { Text("Yes", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelAcceptedDialog = false }) { Text("No") }
+            }
+        )
     }
 
     if (showConfirmGivenDialog) {
@@ -184,8 +206,8 @@ fun ItemDetailScreen(
 
                 // Top-right action buttons
                 Row(
-                    modifier = Modifier.statusBarsPadding().padding(8.dp).align(Alignment.TopEnd),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.statusBarsPadding().padding(12.dp).align(Alignment.TopEnd),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Share
                     IconButton(
@@ -196,7 +218,7 @@ fun ItemDetailScreen(
                             }
                             context.startActivity(Intent.createChooser(shareIntent, "Share item"))
                         },
-                        modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0x80000000))
+                        modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0x80000000))
                     ) {
                         Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White)
                     }
@@ -210,7 +232,7 @@ fun ItemDetailScreen(
                                 }
                                 isEditing = !isEditing
                             },
-                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0x80000000))
+                            modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0x80000000))
                         ) {
                             Icon(
                                 if (isEditing) Icons.Default.Check else Icons.Default.Edit,
@@ -220,7 +242,7 @@ fun ItemDetailScreen(
                         // Delete
                         IconButton(
                             onClick = { showDeleteDialog = true },
-                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0x80000000))
+                            modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0x80000000))
                         ) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete", tint = AskiError)
                         }
@@ -230,7 +252,7 @@ fun ItemDetailScreen(
                         // Report
                         IconButton(
                             onClick = { showReportDialog = true },
-                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0x80000000))
+                            modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0x80000000))
                         ) {
                             Icon(Icons.Default.Flag, contentDescription = "Report", tint = Color.White)
                         }
@@ -385,39 +407,73 @@ fun ItemDetailScreen(
                 .background(Brush.verticalGradient(listOf(Color.Transparent, AskiDarkBg.copy(alpha = 0.95f))))
                 .padding(horizontal = 20.dp, vertical = 20.dp).navigationBarsPadding()
         ) {
-            if (!isOwner && item.status == ItemStatus.AVAILABLE) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
-                        onClick = { onChatClick(item.ownerId) },
-                        modifier = Modifier.weight(1f).height(60.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Default.Chat, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Chat")
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (requestCount > 0) {
+                    Text(
+                        text = "$requestCount people requested this item",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 12.dp).align(Alignment.Start)
+                    )
+                }
+                
+                if (!isOwner && item.status == ItemStatus.AVAILABLE) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(
+                            onClick = { onChatClick(item.ownerId) },
+                            modifier = Modifier.weight(1f).height(60.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Chat, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Chat")
+                        }
+                        if (isRequestAccepted) {
+                            Button(
+                                onClick = { showCancelAcceptedDialog = true },
+                                modifier = Modifier.weight(1.5f).height(60.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AskiSuccess),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                            ) {
+                                Text("Request Accepted", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        } else if (hasRequested) {
+                            Button(
+                                onClick = { onCancelRequestClick?.invoke() },
+                                modifier = Modifier.weight(1.5f).height(60.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AskiError),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                            ) {
+                                Text("Cancel Request", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Button(
+                                onClick = { onRequestClick?.invoke() },
+                                modifier = Modifier.weight(1.5f).height(60.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                            ) {
+                                Text("Request Item", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
+                } else if (isOwner && item.status != ItemStatus.GIVEN) {
                     Button(
-                        onClick = { onRequestClick?.invoke() },
-                        modifier = Modifier.weight(1.5f).height(60.dp),
+                        onClick = { onViewRequestsClick?.invoke() },
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
                         shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                     ) {
-                        Text("Request Item", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.List, contentDescription = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text("View Requests", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
-                }
-            } else if (isOwner && item.status != ItemStatus.GIVEN) {
-                Button(
-                    onClick = { onViewRequestsClick?.invoke() },
-                    modifier = Modifier.fillMaxWidth().height(60.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                ) {
-                    Icon(Icons.Default.List, contentDescription = null)
-                    Spacer(Modifier.width(12.dp))
-                    Text("View Requests", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

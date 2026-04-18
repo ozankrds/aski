@@ -117,12 +117,30 @@ class ItemRepository(
         awaitClose { listener.remove() }
     }
 
+    fun observeItemRequests(itemId: String): Flow<List<com.example.aski.model.ItemRequest>> = callbackFlow {
+        val listener = db.collection("requests")
+            .whereEqualTo("itemId", itemId)
+            .addSnapshotListener { snap, err ->
+                if (err != null) { close(err); return@addSnapshotListener }
+                trySend(snap?.toObjects(com.example.aski.model.ItemRequest::class.java) ?: emptyList())
+            }
+        awaitClose { listener.remove() }
+    }
+
     suspend fun createRequest(request: com.example.aski.model.ItemRequest): Result<Unit> = runCatching {
         val ref = db.collection("requests").document()
         ref.set(request.copy(id = ref.id)).await()
     }
 
+    suspend fun updateRequest(request: com.example.aski.model.ItemRequest): Result<Unit> = runCatching {
+        db.collection("requests").document(request.id).set(request).await()
+    }
+
     suspend fun updateRequestStatus(requestId: String, status: com.example.aski.model.RequestStatus): Result<Unit> = runCatching {
         db.collection("requests").document(requestId).update("status", status.name).await()
+    }
+
+    suspend fun cancelRequest(requestId: String): Result<Unit> = runCatching {
+        db.collection("requests").document(requestId).delete().await()
     }
 }

@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 sealed class AuthState {
     object Loading : AuthState()
     object Unauthenticated : AuthState()
-    data class Authenticated(val user: User) : AuthState()
+    data class Authenticated(val user: User, val isUpdating: Boolean = false) : AuthState()
     data class Error(val message: String) : AuthState()
 }
 
@@ -25,6 +25,9 @@ class AuthViewModel(
 
     private val _profileError = MutableStateFlow<String?>(null)
     val profileError: StateFlow<String?> = _profileError
+
+    private val _searchResults = MutableStateFlow<List<User>>(emptyList())
+    val searchResults: StateFlow<List<User>> = _searchResults
 
     init {
         viewModelScope.launch {
@@ -63,13 +66,13 @@ class AuthViewModel(
 
     fun updateProfile(name: String, newPassword: String?, currentPassword: String?, photoUri: Uri?) {
         val currentUser = (authState.value as? AuthState.Authenticated)?.user ?: return
-        _authState.value = AuthState.Loading
+        _authState.value = AuthState.Authenticated(currentUser, isUpdating = true)
         _profileError.value = null
         viewModelScope.launch {
             repo.updateProfile(currentUser.id, name, newPassword, currentPassword, photoUri)
-                .onSuccess { _authState.value = AuthState.Authenticated(it) }
+                .onSuccess { _authState.value = AuthState.Authenticated(it, isUpdating = false) }
                 .onFailure {
-                    _authState.value = AuthState.Authenticated(currentUser)
+                    _authState.value = AuthState.Authenticated(currentUser, isUpdating = false)
                     _profileError.value = it.message
                 }
         }
@@ -86,7 +89,9 @@ class AuthViewModel(
                     val updated = if (isFavorite) {
                         currentUser.favoriteIds - itemId
                     } else {
-                        currentUser.favoriteIds + itemId
+                        val list = currentUser.favoriteIds.toMutableList()
+                        list.add(itemId)
+                        list
                     }
                     _authState.value = AuthState.Authenticated(currentUser.copy(favoriteIds = updated))
                 }
@@ -101,6 +106,12 @@ class AuthViewModel(
         viewModelScope.launch {
             repo.rateUser(userId, rating)
             onComplete()
+        }
+    }
+
+    fun searchUsers(query: String) {
+        viewModelScope.launch {
+            _searchResults.value = repo.searchUsers(query)
         }
     }
 }

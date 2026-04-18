@@ -1,7 +1,6 @@
 package com.example.aski.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,19 +31,14 @@ import com.example.aski.ui.theme.AskiWarning
 @Composable
 fun RequestsScreen(
     incomingRequests: List<ItemRequest>,
-    outgoingRequests: List<ItemRequest>,
     onAcceptRequest: (String) -> Unit,
     onRejectRequest: (String) -> Unit,
-    onCompleteRequest: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Received", "Sent")
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Requests") },
+                title = { Text("Received Requests") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -53,43 +47,28 @@ fun RequestsScreen(
             )
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = MaterialTheme.colorScheme.background,
-                contentColor = MaterialTheme.colorScheme.primary,
-                divider = {}
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }
-                    )
-                }
+        if (incomingRequests.isEmpty()) {
+            Box(Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No requests found", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
-            val displayed = if (selectedTab == 0) incomingRequests else outgoingRequests
-
-            if (displayed.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No requests found", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(displayed, key = { it.id }) { request ->
-                        RequestItemCard(
-                            request = request,
-                            isIncoming = selectedTab == 0,
-                            onAccept = { onAcceptRequest(request.id) },
-                            onReject = { onRejectRequest(request.id) },
-                            onComplete = { onCompleteRequest(request.id) }
-                        )
+        } else {
+            LazyColumn(
+                modifier = Modifier.padding(innerPadding).fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(incomingRequests, key = { it.id }) { request ->
+                    // Find if there's any accepted request for this item
+                    val hasAnyAccepted = incomingRequests.any { 
+                        it.itemId == request.itemId && it.status == RequestStatus.ACCEPTED 
                     }
+
+                    RequestItemCard(
+                        request = request,
+                        canAccept = !hasAnyAccepted,
+                        onAccept = { onAcceptRequest(request.id) },
+                        onReject = { onRejectRequest(request.id) }
+                    )
                 }
             }
         }
@@ -99,10 +78,9 @@ fun RequestsScreen(
 @Composable
 fun RequestItemCard(
     request: ItemRequest,
-    isIncoming: Boolean,
+    canAccept: Boolean,
     onAccept: () -> Unit,
-    onReject: () -> Unit,
-    onComplete: () -> Unit
+    onReject: () -> Unit
 ) {
     val statusColor = when (request.status) {
         RequestStatus.PENDING -> AskiWarning
@@ -131,7 +109,7 @@ fun RequestItemCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(request.itemTitle, fontWeight = FontWeight.Bold, maxLines = 1)
                 Text(
-                    if (isIncoming) "from ${request.requesterName}" else "to ${request.ownerName}",
+                    "from ${request.requesterName}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -150,24 +128,38 @@ fun RequestItemCard(
                 }
             }
 
-            if (isIncoming && request.status == RequestStatus.PENDING) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = onReject, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
-                        Icon(Icons.Default.Close, contentDescription = "Reject", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(16.dp))
+            if (request.status == RequestStatus.PENDING) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    IconButton(
+                        onClick = onReject,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Reject",
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
-                    IconButton(onClick = onAccept, modifier = Modifier.size(32.dp).background(AskiSuccess.copy(alpha = 0.2f), CircleShape)) {
-                        Icon(Icons.Default.Check, contentDescription = "Accept", tint = AskiSuccess, modifier = Modifier.size(16.dp))
+                    
+                    // Tick button only appears if canAccept is true
+                    if (canAccept) {
+                        IconButton(
+                            onClick = onAccept,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(AskiSuccess.copy(alpha = 0.2f), CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Accept",
+                                tint = AskiSuccess,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
-                }
-            } else if (!isIncoming && request.status == RequestStatus.ACCEPTED) {
-                Button(
-                    onClick = onComplete,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.height(32.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AskiSuccess)
-                ) {
-                    Text("Received", fontSize = 12.sp)
                 }
             }
         }

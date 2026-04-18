@@ -9,6 +9,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,7 +27,9 @@ import coil.compose.AsyncImage
 import com.example.aski.model.Item
 import com.example.aski.model.ItemStatus
 import com.example.aski.model.User
+import com.example.aski.ui.theme.AskiOnBgVariant
 import com.example.aski.ui.theme.AskiSuccess
+import com.example.aski.ui.theme.AskiWarning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,12 +37,9 @@ fun UserProfileScreen(
     user: User?,
     items: List<Item>,
     onItemClick: (String) -> Unit,
+    onChatClick: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
-    val sortedItems = items.sortedWith(
-        compareBy<Item> { it.status == ItemStatus.GIVEN }.thenByDescending { it.createdAt }
-    )
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -48,87 +50,95 @@ fun UserProfileScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.padding(innerPadding),
-            contentPadding = PaddingValues(bottom = 32.dp)
-        ) {
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(88.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val photo = user?.photoUrl?.ifBlank { null }
-                        if (photo != null) {
-                            AsyncImage(
-                                model = photo,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            val initial = user?.name?.trim()?.takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
-                            Text(initial, fontSize = 36.sp, fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            user?.name?.ifBlank { "Unknown" } ?: "Unknown",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        if (user?.isVerified == true) {
-                            Spacer(Modifier.width(6.dp))
-                            Icon(
-                                Icons.Default.Verified,
-                                contentDescription = "Verified",
-                                tint = AskiSuccess,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        StatItem(label = "Listed", value = items.size.toString())
-                        StatItem(label = "Karma", value = user?.karmaPoints?.toString() ?: "0")
-                        StatItem(
-                            label = "Rating",
-                            value = if (user?.ratingCount == 0) "-" else "%.1f".format(user?.rating ?: 0.0)
-                        )
-                    }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                Spacer(Modifier.height(8.dp))
-            }
-
-            if (sortedItems.isEmpty()) {
+        if (user == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        } else {
+            LazyColumn(
+                modifier = Modifier.padding(innerPadding),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
                 item {
-                    Box(
-                        Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("No listings", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(
+                            modifier = Modifier.size(88.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (user.photoUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = user.photoUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                val initial = user.name.trim().takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
+                                Text(initial, fontSize = 36.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(user.name, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+                            if (user.isVerified) {
+                                Spacer(Modifier.width(6.dp))
+                                Icon(Icons.Default.Verified, contentDescription = "Verified", tint = AskiSuccess, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF1C40F), modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                if (user.ratingCount == 0) "No ratings" else "%.1f (%d)".format(user.rating, user.ratingCount),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                }
+
+                item {
+                    Text(
+                        "Listings",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+                    )
+                }
+
+                if (items.isEmpty()) {
+                    item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { Text("No listings yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                } else {
+                    items(items) { item ->
+                        ProfileItemRow(item = item, onClick = { onItemClick(item.id) })
                     }
                 }
-            } else {
-                items(sortedItems, key = { it.id }) { item ->
-                    ProfileItemRow(item = item, onClick = { onItemClick(item.id) })
+            }
+            
+            // Bottom Chat button
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Button(
+                    onClick = { onChatClick(user.id) },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.Chat, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Chat with ${user.name.split(" ").first()}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

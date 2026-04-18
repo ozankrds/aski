@@ -28,6 +28,9 @@ class ItemViewModel(
     private val _outgoingRequests = MutableStateFlow<List<com.example.aski.model.ItemRequest>>(emptyList())
     val outgoingRequests: StateFlow<List<com.example.aski.model.ItemRequest>> = _outgoingRequests
 
+    private val _itemRequests = MutableStateFlow<Map<String, List<com.example.aski.model.ItemRequest>>>(emptyMap())
+    val itemRequests: StateFlow<Map<String, List<com.example.aski.model.ItemRequest>>> = _itemRequests
+
     private val _selectedCategoryId = MutableStateFlow(0)
     val selectedCategoryId: StateFlow<Int> = _selectedCategoryId
 
@@ -75,6 +78,14 @@ class ItemViewModel(
             repo.observeUserItems(userId).collect { 
                 _userItems.value = it
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun observeItemRequests(itemId: String) {
+        viewModelScope.launch {
+            repo.observeItemRequests(itemId).collect { requests ->
+                _itemRequests.value = _itemRequests.value + (itemId to requests)
             }
         }
     }
@@ -150,6 +161,29 @@ class ItemViewModel(
         ownerName: String,
         onSuccess: () -> Unit = {}
     ) {
+        // Find if there's an existing request that's not rejected
+        val existingRequest = _outgoingRequests.value.find { 
+            it.itemId == item.id && it.requesterId == requesterId 
+        }
+
+        if (existingRequest != null) {
+            if (existingRequest.status == com.example.aski.model.RequestStatus.REJECTED) {
+                // If previously rejected, reuse the document and set back to PENDING
+                viewModelScope.launch {
+                    val refreshedRequest = existingRequest.copy(
+                        status = com.example.aski.model.RequestStatus.PENDING,
+                        createdAt = System.currentTimeMillis()
+                    )
+                    repo.updateRequest(refreshedRequest).onSuccess { onSuccess() }
+                }
+                return
+            } else {
+                // If Pending or Accepted, do nothing (don't double-send)
+                return
+            }
+        }
+
+        // No previous request found, create a brand new one
         val request = com.example.aski.model.ItemRequest(
             itemId = item.id,
             itemTitle = item.title,
@@ -162,6 +196,15 @@ class ItemViewModel(
         )
         viewModelScope.launch {
             repo.createRequest(request).onSuccess { onSuccess() }
+        }
+    }
+
+    fun cancelRequest(itemId: String, requesterId: String) {
+        val request = _outgoingRequests.value.find { it.itemId == itemId && it.requesterId == requesterId }
+        request?.let {
+            viewModelScope.launch {
+                repo.cancelRequest(it.id)
+            }
         }
     }
 
