@@ -8,8 +8,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -33,6 +35,8 @@ import com.example.aski.model.User
 import com.example.aski.model.categories
 import kotlinx.coroutines.launch
 
+private enum class SearchMode { ITEMS, PEOPLE }
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FeedScreen(
@@ -51,29 +55,27 @@ fun FeedScreen(
     currentUser: User? = null
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var userSearchQuery by remember { mutableStateOf("") }
-    
+    var searchMode by remember { mutableStateOf(SearchMode.ITEMS) }
+
     // Effective filters (applied to the list)
     var appliedCategoryIds by remember { mutableStateOf(setOf(0)) }
     var appliedConditions by remember { mutableStateOf(setOf<ItemCondition>()) }
-    
+
     // Temporary filters (shown in the bottom sheet before clicking Apply)
     var tempCategoryIds by remember { mutableStateOf(setOf(0)) }
     var tempConditions by remember { mutableStateOf(setOf<ItemCondition>()) }
-    
-    var isUserSearchActive by remember { mutableStateOf(false) }
+
     var showFilterSheet by remember { mutableStateOf(false) }
-    
+
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
     val displayed = remember(items, searchQuery, appliedCategoryIds, appliedConditions) {
         items.filter {
-            val matchesCategory = if (appliedCategoryIds.contains(0)) true 
-                                 else appliedCategoryIds.contains(it.categoryId)
-            val matchesCondition = if (appliedConditions.isEmpty()) true 
-                                  else appliedConditions.contains(it.condition)
-            
+            val matchesCategory = if (appliedCategoryIds.contains(0)) true
+                                  else appliedCategoryIds.contains(it.categoryId)
+            val matchesCondition = if (appliedConditions.isEmpty()) true
+                                   else appliedConditions.contains(it.condition)
             matchesCategory && matchesCondition && it.title.contains(searchQuery, ignoreCase = true)
         }
     }
@@ -81,89 +83,42 @@ fun FeedScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            "aski",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable {
-                                searchQuery = ""
-                                appliedCategoryIds = setOf(0)
-                                appliedConditions = emptySet()
-                                scope.launch { listState.animateScrollToItem(0) }
-                            }
-                        )
-                    },
-                    actions = {
-                        IconButton(
-                            onClick = { 
-                                isUserSearchActive = !isUserSearchActive 
-                                if (!isUserSearchActive) userSearchQuery = ""
-                            },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                    if (isUserSearchActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                    else Color.Transparent,
-                                    RoundedCornerShape(8.dp)
-                                )
-                        ) {
-                            Icon(
-                                Icons.Default.PersonSearch,
-                                contentDescription = "Search Users",
-                                tint = if (isUserSearchActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
-                            )
+            TopAppBar(
+                title = {
+                    Text(
+                        "aski",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable {
+                            searchQuery = ""
+                            searchMode = SearchMode.ITEMS
+                            appliedCategoryIds = setOf(0)
+                            appliedConditions = emptySet()
+                            scope.launch { listState.animateScrollToItem(0) }
                         }
-                        
-                        BadgedBox(
-                            badge = { if (totalUnread > 0) Badge { Text(totalUnread.toString()) } }
-                        ) {
-                            IconButton(onClick = onProfileClick) {
-                                if (currentUser?.photoUrl?.isNotBlank() == true) {
-                                    AsyncImage(
-                                        model = currentUser.photoUrl,
-                                        contentDescription = "Profile",
-                                        modifier = Modifier
-                                            .size(30.dp)
-                                            .clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Icon(Icons.Default.AccountCircle, contentDescription = "Profile", modifier = Modifier.size(30.dp))
-                                }
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-                )
-
-                if (isUserSearchActive) {
-                    OutlinedTextField(
-                        value = userSearchQuery,
-                        onValueChange = {
-                            userSearchQuery = it
-                            onSearchUsers(it)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        placeholder = { Text("Search users...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        trailingIcon = {
-                            if (userSearchQuery.isNotEmpty()) {
-                                IconButton(onClick = { 
-                                    userSearchQuery = ""
-                                    onSearchUsers("")
-                                }) { Icon(Icons.Default.Close, contentDescription = "Clear search") }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(28.dp)
                     )
-                }
-            }
+                },
+                actions = {
+                    BadgedBox(
+                        badge = { if (totalUnread > 0) Badge { Text(totalUnread.toString()) } }
+                    ) {
+                        IconButton(onClick = onProfileClick) {
+                            if (currentUser?.photoUrl?.isNotBlank() == true) {
+                                AsyncImage(
+                                    model = currentUser.photoUrl,
+                                    contentDescription = "Profile",
+                                    modifier = Modifier.size(30.dp).clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(Icons.Default.AccountCircle, contentDescription = "Profile",
+                                    modifier = Modifier.size(30.dp))
+                            }
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+            )
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -186,159 +141,193 @@ fun FeedScreen(
                 contentPadding = PaddingValues(bottom = 88.dp)
             ) {
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("Search items...") },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(28.dp)
-                        )
-                        
-                        val isFilterActive = showFilterSheet || !appliedCategoryIds.contains(0) || appliedConditions.isNotEmpty()
-                        Surface(
-                            onClick = { 
-                                tempCategoryIds = appliedCategoryIds
-                                tempConditions = appliedConditions
-                                showFilterSheet = true 
-                            },
-                            shape = RoundedCornerShape(14.dp),
-                            color = if (isFilterActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.size(52.dp)
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Tune,
-                                    contentDescription = "Filter",
-                                    tint = if (isFilterActive) MaterialTheme.colorScheme.primary else Color.Gray
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(categories) { category ->
-                            FilterChip(
-                                selected = appliedCategoryIds.contains(category.id),
-                                onClick = { 
-                                    appliedCategoryIds = if (category.id == 0) {
-                                        setOf(0)
-                                    } else {
-                                        val newSet = appliedCategoryIds - 0
-                                        if (newSet.contains(category.id)) {
-                                            val filtered = newSet - category.id
-                                            if (filtered.isEmpty()) setOf(0) else filtered
-                                        } else {
-                                            newSet + category.id
-                                        }
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = {
+                                    searchQuery = it
+                                    if (searchMode == SearchMode.PEOPLE) onSearchUsers(it)
+                                },
+                                modifier = Modifier.weight(1f),
+                                placeholder = {
+                                    Text(if (searchMode == SearchMode.PEOPLE) "Search people..." else "Search items...")
+                                },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = {
+                                            searchQuery = ""
+                                            if (searchMode == SearchMode.PEOPLE) onSearchUsers("")
+                                        }) { Icon(Icons.Default.Close, contentDescription = "Clear") }
                                     }
                                 },
-                                label = { Text(category.name) }
+                                singleLine = true,
+                                shape = RoundedCornerShape(28.dp)
                             )
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                }
 
-                val isFiltered = !appliedCategoryIds.contains(0) || appliedConditions.isNotEmpty() || searchQuery.isNotBlank()
-                if (isLoading) {
-                    items(4) { ItemCardSkeleton() }
-                } else if (displayed.isEmpty()) {
-                    item {
-                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text(
-                                    if (isFiltered) "No items match your filters" else "No items yet",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (isFiltered) {
-                                    OutlinedButton(onClick = {
-                                        appliedCategoryIds = setOf(0)
-                                        appliedConditions = emptySet()
-                                        tempCategoryIds = setOf(0)
-                                        tempConditions = emptySet()
-                                    }) { Text("Clear filters") }
+                            if (searchMode == SearchMode.ITEMS) {
+                                val isFilterActive = !appliedCategoryIds.contains(0) || appliedConditions.isNotEmpty()
+                                Surface(
+                                    onClick = {
+                                        tempCategoryIds = appliedCategoryIds
+                                        tempConditions = appliedConditions
+                                        showFilterSheet = true
+                                    },
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (isFilterActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                            else MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.size(52.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Tune, contentDescription = "Filter",
+                                            tint = if (isFilterActive) MaterialTheme.colorScheme.primary
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
                             }
                         }
-                    }
-                } else {
-                    items(displayed, key = { it.id }) { item ->
-                        ItemCard(
-                            item = item,
-                            isFavorite = favoriteIds.contains(item.id),
-                            onFavoriteClick = { onToggleFavorite(item.id) },
-                            onClick = { onItemClick(item.id) }
-                        )
-                        Spacer(Modifier.height(16.dp))
-                    }
-                    item {
-                        Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
-                            Text("That's all!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                        // Mode toggle
+                        Row(
+                            modifier = Modifier.padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = searchMode == SearchMode.ITEMS,
+                                onClick = { searchMode = SearchMode.ITEMS },
+                                label = { Text("Items") },
+                                leadingIcon = { Icon(Icons.Default.GridView, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            )
+                            FilterChip(
+                                selected = searchMode == SearchMode.PEOPLE,
+                                onClick = {
+                                    searchMode = SearchMode.PEOPLE
+                                    if (searchQuery.isNotBlank()) onSearchUsers(searchQuery)
+                                },
+                                label = { Text("People") },
+                                leadingIcon = { Icon(Icons.Default.PersonSearch, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            )
                         }
                     }
                 }
-            }
 
-            // User Search Results Overlay
-            if (isUserSearchActive && userSearchQuery.isNotBlank()) {
-                // Translucent overlay to dim the background
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.4f))
-                        .clickable { /* Could close search here if desired */ }
-                )
-                
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .heightIn(max = 400.dp)
-                        .align(Alignment.TopCenter),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    if (searchUsersResults.isEmpty()) {
-                        Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                            Text("No users found", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    } else {
-                        LazyColumn {
-                            items(searchUsersResults) { user ->
-                                ListItem(
-                                    headlineContent = { Text(user.name) },
-                                    supportingContent = { Text(user.email, fontSize = 12.sp) },
-                                    leadingContent = {
-                                        if (user.photoUrl.isNotBlank()) {
-                                            AsyncImage(
-                                                model = user.photoUrl,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(40.dp).clip(CircleShape),
-                                                contentScale = ContentScale.Crop
-                                            )
+                if (searchMode == SearchMode.ITEMS) {
+                    item {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                        ) {
+                            items(categories) { category ->
+                                FilterChip(
+                                    selected = appliedCategoryIds.contains(category.id),
+                                    onClick = {
+                                        appliedCategoryIds = if (category.id == 0) {
+                                            setOf(0)
                                         } else {
-                                            Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(40.dp))
+                                            val newSet = appliedCategoryIds - 0
+                                            if (newSet.contains(category.id)) {
+                                                val filtered = newSet - category.id
+                                                if (filtered.isEmpty()) setOf(0) else filtered
+                                            } else {
+                                                newSet + category.id
+                                            }
                                         }
                                     },
-                                    modifier = Modifier.clickable { 
-                                        onUserClick(user.id)
-                                        isUserSearchActive = false
-                                        userSearchQuery = ""
-                                    }
+                                    label = { Text(category.name) }
                                 )
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                        }
+                    }
+                }
+
+                if (searchMode == SearchMode.PEOPLE) {
+                    if (searchQuery.isBlank()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Default.PersonSearch, contentDescription = null,
+                                        modifier = Modifier.size(40.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Search for people by name", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    } else if (searchUsersResults.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
+                                Text("No users found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    } else {
+                        items(searchUsersResults, key = { it.id }) { user ->
+                            ListItem(
+                                headlineContent = { Text(user.name, fontWeight = FontWeight.Medium) },
+                                supportingContent = { Text(user.email, fontSize = 12.sp) },
+                                leadingContent = {
+                                    if (user.photoUrl.isNotBlank()) {
+                                        AsyncImage(model = user.photoUrl, contentDescription = null,
+                                            modifier = Modifier.size(40.dp).clip(CircleShape),
+                                            contentScale = ContentScale.Crop)
+                                    } else {
+                                        Box(Modifier.size(40.dp).clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(user.name.take(1).uppercase(), fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.clickable { onUserClick(user.id) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp),
+                                thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
+                } else {
+                    val isFiltered = !appliedCategoryIds.contains(0) || appliedConditions.isNotEmpty() || searchQuery.isNotBlank()
+                    if (isLoading) {
+                        items(4) { ItemCardSkeleton() }
+                    } else if (displayed.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 60.dp), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(
+                                        if (isFiltered) "No items match your filters" else "No items yet",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (isFiltered) {
+                                        OutlinedButton(onClick = {
+                                            appliedCategoryIds = setOf(0)
+                                            appliedConditions = emptySet()
+                                            tempCategoryIds = setOf(0)
+                                            tempConditions = emptySet()
+                                            searchQuery = ""
+                                        }) { Text("Clear filters") }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        items(displayed, key = { it.id }) { item ->
+                            ItemCard(
+                                item = item,
+                                isFavorite = favoriteIds.contains(item.id),
+                                onFavoriteClick = { onToggleFavorite(item.id) },
+                                onClick = { onItemClick(item.id) }
+                            )
+                            Spacer(Modifier.height(16.dp))
+                        }
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                                Text("That's all!", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -357,6 +346,7 @@ fun FeedScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 48.dp)
             ) {

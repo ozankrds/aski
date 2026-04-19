@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,12 +25,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.aski.model.ItemCondition
 import com.example.aski.model.categories
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateListingScreen(
     onPostItem: (String, String, Int, ItemCondition, String, List<Uri>) -> Unit,
@@ -63,155 +67,138 @@ fun CreateListingScreen(
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
-                .fillMaxSize(),
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Photos (${imageUris.size}/5)", style = MaterialTheme.typography.titleMedium)
-
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Photos
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                imageUris.forEachIndexed { index, uri ->
-                    Box(modifier = Modifier.size(100.dp)) {
+                Text("Photos", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("${imageUris.size}/5", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(imageUris) { index, uri ->
+                    Box(modifier = Modifier.size(96.dp)) {
                         AsyncImage(
-                            model = uri,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(12.dp))
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
+                            model = uri, contentDescription = null,
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Crop
                         )
-                        IconButton(
-                            onClick = { imageUris.removeAt(index) },
+                        Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(22.dp)
                                 .align(Alignment.TopEnd)
-                                .padding(4.dp)
-                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                .offset(x = 4.dp, y = (-4).dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { imageUris.removeAt(index) },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(12.dp))
+                            Icon(Icons.Default.Close, contentDescription = "Remove",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(14.dp))
                         }
                     }
                 }
-
                 if (imageUris.size < 5) {
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                            .clickable {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Add", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .size(96.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable {
+                                    photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.AddAPhoto, contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp))
+                                Text("Add photo", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
             }
 
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("Title") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                )
+            val fieldColors = OutlinedTextFieldDefaults.colors(
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedBorderColor = Color.Transparent,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
             )
 
             OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Description") },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                )
+                value = title, onValueChange = { title = it },
+                label = { Text("Title") }, singleLine = true,
+                shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
+                colors = fieldColors
             )
 
             OutlinedTextField(
-                value = location,
-                onValueChange = { location = it },
-                label = { Text("Location (city / neighborhood)") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                )
+                value = description, onValueChange = { description = it },
+                label = { Text("Description") }, shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(), minLines = 3, colors = fieldColors
             )
 
-            // Category Dropdown
+            OutlinedTextField(
+                value = location, onValueChange = { location = it },
+                label = { Text("Location") }, singleLine = true,
+                shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
+                colors = fieldColors
+            )
+
+            // Category dropdown
             var categoryExpanded by remember { mutableStateOf(false) }
             val currentCategoryName = categories.find { it.id == selectedCategoryId }?.name ?: ""
-            ExposedDropdownMenuBox(
-                expanded = categoryExpanded,
-                onExpandedChange = { categoryExpanded = !categoryExpanded }
-            ) {
+            ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = !categoryExpanded }) {
                 OutlinedTextField(
-                    value = currentCategoryName,
-                    onValueChange = {},
-                    readOnly = true,
+                    value = currentCategoryName, onValueChange = {}, readOnly = true,
                     label = { Text("Category") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    shape = RoundedCornerShape(12.dp), modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    colors = fieldColors
                 )
                 ExposedDropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
                     categories.filter { it.id != 0 }.forEach { category ->
-                        DropdownMenuItem(
-                            text = { Text(category.name) },
-                            onClick = { selectedCategoryId = category.id; categoryExpanded = false }
-                        )
+                        DropdownMenuItem(text = { Text(category.name) },
+                            onClick = { selectedCategoryId = category.id; categoryExpanded = false })
                     }
                 }
             }
 
-            // Condition Dropdown
-            var conditionExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = conditionExpanded,
-                onExpandedChange = { conditionExpanded = !conditionExpanded }
-            ) {
-                OutlinedTextField(
-                    value = selectedCondition.name,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Condition") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = conditionExpanded) },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
-                )
-                ExposedDropdownMenu(expanded = conditionExpanded, onDismissRequest = { conditionExpanded = false }) {
+            // Condition chips
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Condition", style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ItemCondition.entries.forEach { condition ->
-                        DropdownMenuItem(
-                            text = { Text(condition.name) },
-                            onClick = { selectedCondition = condition; conditionExpanded = false }
+                        val label = condition.name.replace("_", " ")
+                            .lowercase().replaceFirstChar { it.uppercase() }
+                        FilterChip(
+                            selected = selectedCondition == condition,
+                            onClick = { selectedCondition = condition },
+                            label = { Text(label, fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true, selected = selectedCondition == condition,
+                                borderColor = MaterialTheme.colorScheme.outline,
+                                selectedBorderColor = Color.Transparent
+                            )
                         )
                     }
                 }
@@ -231,15 +218,14 @@ fun CreateListingScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (isUploading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("Post Item")
+                    Text("Post Item", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
         }
     }
 }

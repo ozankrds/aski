@@ -16,21 +16,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -72,7 +68,6 @@ fun ProfileScreen(
     )
 
     val rawItems = if (selectedTab == 0) userItems else favoriteItems
-    // Sort: Available & Reserved first, Given last. Within those, newest first.
     val sortedItems = remember(rawItems) {
         rawItems.sortedWith(
             compareBy<Item> { it.status == ItemStatus.GIVEN }
@@ -132,103 +127,68 @@ fun ProfileScreen(
             // Profile header
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Gradient banner
+                    Spacer(Modifier.height(16.dp))
+
+                    // Avatar
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(100.dp)
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                        MaterialTheme.colorScheme.background
-                                    )
-                                )
-                            )
-                    )
-
-                    // Avatar (overlapping banner)
-                    Box(
-                        modifier = Modifier.offset(y = (-44).dp),
+                            .size(84.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable(enabled = isEditing) {
+                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(96.dp)
-                                .clip(CircleShape)
-                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable(enabled = isEditing) {
-                                    photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val photoSource: Any? = photoUri ?: user?.photoUrl?.ifBlank { null }
-                            if (photoSource != null) {
-                                AsyncImage(
-                                    model = photoSource,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                val initial = user?.name?.trim()?.takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
-                                Text(
-                                    initial,
-                                    fontSize = 38.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            if (isEditing) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(Color.Black.copy(alpha = 0.4f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = Color.White)
-                                }
+                        val photoSource: Any? = photoUri ?: user?.photoUrl?.ifBlank { null }
+                        if (photoSource != null) {
+                            AsyncImage(
+                                model = photoSource,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            val initial = user?.name?.trim()?.takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
+                            Text(initial, fontSize = 34.sp, fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary)
+                        }
+                        if (isEditing) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = Color.White)
                             }
                         }
                     }
 
-                    Spacer(Modifier.height((-28).dp))
+                    Spacer(Modifier.height(12.dp))
 
                     if (isEditing) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                         OutlinedTextField(
-                            value = editName,
-                            onValueChange = { editName = it },
-                            label = { Text("Name") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth(),
+                            value = editName, onValueChange = { editName = it },
+                            label = { Text("Name") }, singleLine = true,
+                            shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
                             colors = authFieldColors()
                         )
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
-                            value = editPassword,
-                            onValueChange = { editPassword = it },
-                            label = { Text("New Password (leave blank to keep)") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth(),
+                            value = editPassword, onValueChange = { editPassword = it },
+                            label = { Text("New password (blank = keep)") }, singleLine = true,
+                            shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
                             visualTransformation = PasswordVisualTransformation(),
                             colors = authFieldColors()
                         )
                         if (editPassword.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
                             OutlinedTextField(
-                                value = currentPassword,
-                                onValueChange = { currentPassword = it },
-                                label = { Text("Current Password (required to change)") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth(),
+                                value = currentPassword, onValueChange = { currentPassword = it },
+                                label = { Text("Current password") }, singleLine = true,
+                                shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
                                 visualTransformation = PasswordVisualTransformation(),
                                 colors = authFieldColors()
                             )
@@ -239,129 +199,135 @@ fun ProfileScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.clickable { onClearError() })
                         }
-                        }
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 user?.name?.ifBlank { "Unknown" } ?: "Unknown",
-                                style = MaterialTheme.typography.headlineMedium,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             if (user?.isVerified == true) {
                                 Spacer(Modifier.width(6.dp))
-                                Icon(
-                                    Icons.Default.Verified,
-                                    contentDescription = "Verified",
-                                    tint = AskiSuccess,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Icon(Icons.Default.Verified, contentDescription = "Verified",
+                                    tint = AskiSuccess, modifier = Modifier.size(18.dp))
                             }
                         }
-                        Text(
-                            user?.email ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(user?.email ?: "", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    // Buttons
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Action buttons
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = onMessagesClick,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                         ) {
-                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Messages", fontWeight = FontWeight.SemiBold)
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null,
+                                modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Messages", fontWeight = FontWeight.Medium, maxLines = 1,
+                                overflow = TextOverflow.Clip, fontSize = 13.sp)
                         }
-
                         OutlinedButton(
                             onClick = onRequestsClick,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("My Requests", fontWeight = FontWeight.SemiBold)
+                            Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null,
+                                modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("My Requests", fontWeight = FontWeight.Medium, maxLines = 1,
+                                overflow = TextOverflow.Clip, fontSize = 13.sp)
                         }
                     }
-                    Spacer(Modifier.height(20.dp))
+
+                    Spacer(Modifier.height(16.dp))
                 }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                Spacer(Modifier.height(8.dp))
-            }
-
-            // Theme settings
-            item {
-                val themeConfig = LocalThemeConfig.current
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Dark mode", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                        Switch(checked = themeConfig.isDark, onCheckedChange = { themeConfig.onToggleDark() })
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Theme", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.weight(1f))
-                        ColorPreset.entries.forEach { preset ->
-                            val selected = themeConfig.preset == preset
-                            Box(
-                                modifier = Modifier
-                                    .size(if (selected) 32.dp else 28.dp)
-                                    .clip(CircleShape)
-                                    .background(preset.swatch)
-                                    .clickable { themeConfig.onSetPreset(preset) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (selected) Icon(
-                                    Icons.Default.Verified,
-                                    contentDescription = preset.label,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    }
-                }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             }
 
             // Stats row
             item {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    tonalElevation = 2.dp
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
+                    StatItem(label = "Listed", value = userItems.size.toString())
+                    VerticalDivider(modifier = Modifier.height(36.dp), color = MaterialTheme.colorScheme.outline)
+                    StatItem(label = "Given", value = user?.givenCount?.toString()
+                        ?: userItems.count { it.status == ItemStatus.GIVEN }.toString())
+                    VerticalDivider(modifier = Modifier.height(36.dp), color = MaterialTheme.colorScheme.outline)
+                    StatItem(label = "Karma", value = user?.karmaPoints?.toString() ?: "0")
+                    VerticalDivider(modifier = Modifier.height(36.dp), color = MaterialTheme.colorScheme.outline)
+                    StatItem(
+                        label = "Rating",
+                        value = if (user?.ratingCount == 0) "—" else "%.1f".format(user?.rating ?: 0.0)
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            }
+
+            // Theme & appearance settings
+            item {
+                val themeConfig = LocalThemeConfig.current
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    Text("Appearance", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 10.dp))
+
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        StatItem(label = "Listed", value = userItems.size.toString())
-                        VerticalDivider(modifier = Modifier.height(40.dp), color = MaterialTheme.colorScheme.outline)
-                        StatItem(label = "Given", value = user?.givenCount?.toString() ?: userItems.count { it.status == ItemStatus.GIVEN }.toString())
-                        VerticalDivider(modifier = Modifier.height(40.dp), color = MaterialTheme.colorScheme.outline)
-                        StatItem(label = "Karma", value = user?.karmaPoints?.toString() ?: "0")
-                        VerticalDivider(modifier = Modifier.height(40.dp), color = MaterialTheme.colorScheme.outline)
-                        StatItem(
-                            label = "Rating",
-                            value = if (user?.ratingCount == 0) "-" else "%.1f".format(user?.rating ?: 0.0)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(
+                                if (themeConfig.isDark) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text("Dark mode", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            ColorPreset.entries.forEach { preset ->
+                                val selected = themeConfig.preset == preset
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(preset.swatch)
+                                        .then(
+                                            if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.onBackground, CircleShape)
+                                            else Modifier
+                                        )
+                                        .clickable { themeConfig.onSetPreset(preset) }
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Switch(
+                                checked = themeConfig.isDark,
+                                onCheckedChange = { themeConfig.onToggleDark() },
+                                modifier = Modifier.height(24.dp)
+                            )
+                        }
                     }
                 }
-                Spacer(Modifier.height(4.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             }
 
             // Tabs
@@ -372,18 +338,13 @@ fun ProfileScreen(
                     contentColor = MaterialTheme.colorScheme.primary,
                     divider = {}
                 ) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        text = { Text("My Listings") }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = { Text("Favorites") }
-                    )
+                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
+                        text = { Text("My Listings") })
+                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
+                        text = { Text("Favorites") })
                 }
-                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.height(4.dp))
             }
 
             when (selectedTab) {
@@ -409,8 +370,8 @@ fun ProfileScreen(
 @Composable
 fun StatItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-        Text(label, style = MaterialTheme.typography.bodySmall,
+        Text(value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+        Text(label, style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -432,8 +393,8 @@ fun ProfileItemRow(item: Item, onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(60.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             val thumbnail = item.imageUrls.firstOrNull()
@@ -450,16 +411,21 @@ fun ProfileItemRow(item: Item, onClick: () -> Unit) {
         Spacer(Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(item.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground, maxLines = 1)
+            Text(item.title, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onBackground, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
             Text(item.condition.name.replace("_", " "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
+        Spacer(Modifier.width(8.dp))
+
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
-                .background(statusColor.copy(alpha = 0.15f))
+                .background(statusColor.copy(alpha = 0.12f))
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(item.status.name, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
