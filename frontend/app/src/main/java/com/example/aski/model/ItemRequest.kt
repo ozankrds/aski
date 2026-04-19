@@ -16,6 +16,8 @@ data class ItemRequest(
     val status: RequestStatus = RequestStatus.PENDING,
     val deliveryMethod: DeliveryMethod? = null,
     val deliveryStatus: DeliveryStatus = DeliveryStatus.NONE,
+    val ownerConfirmed: Boolean = false,
+    val requesterConfirmed: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     constructor() : this(id = "")

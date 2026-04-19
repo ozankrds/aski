@@ -20,7 +20,7 @@ class ItemRepository(
 
     fun observeFeedItems(): Flow<List<Item>> = callbackFlow {
         val listener = col
-            .whereIn("status", listOf(ItemStatus.AVAILABLE.name, ItemStatus.RESERVED.name))
+            .whereEqualTo("status", ItemStatus.AVAILABLE.name)
             .addSnapshotListener { snap, err ->
                 if (err != null) { close(err); return@addSnapshotListener }
                 val sorted = snap?.toObjects(Item::class.java)
@@ -183,5 +183,59 @@ class ItemRepository(
 
     suspend fun updateDeliveryStatus(requestId: String, deliveryStatus: DeliveryStatus): Result<Unit> = runCatching {
         db.collection("requests").document(requestId).update("deliveryStatus", deliveryStatus.name).await()
+    }
+
+    // Owner confirms handover (hand-to-hand). Returns true when both parties confirmed → delivery complete.
+    suspend fun ownerConfirmHandover(requestId: String, itemId: String): Result<Boolean> = runCatching {
+        val reqRef = db.collection("requests").document(requestId)
+        db.runTransaction { tx ->
+            val snap = tx.get(reqRef)
+            val requesterAlreadyConfirmed = snap.getBoolean("requesterConfirmed") ?: false
+            if (requesterAlreadyConfirmed) {
+                tx.update(reqRef, mapOf(
+                    "ownerConfirmed" to true,
+                    "deliveryStatus" to DeliveryStatus.DELIVERED.name,
+                    "status" to com.example.aski.model.RequestStatus.COMPLETED.name
+                ))
+                if (itemId.isNotBlank()) tx.update(col.document(itemId), "status", ItemStatus.GIVEN.name)
+                true
+            } else {
+                tx.update(reqRef, "ownerConfirmed", true)
+                false
+            }
+        }.await()
+    }
+
+    // Requester confirms receipt. Cargo: always completes. Hand-to-hand: completes if owner already confirmed.
+    suspend fun requesterConfirmDelivery(requestId: String, itemId: String, method: DeliveryMethod): Result<Boolean> = runCatching {
+        val reqRef = db.collection("requests").document(requestId)
+        if (method == DeliveryMethod.CARGO) {
+            val batch = db.batch()
+            batch.update(reqRef, mapOf(
+                "requesterConfirmed" to true,
+                "deliveryStatus" to DeliveryStatus.DELIVERED.name,
+                "status" to com.example.aski.model.RequestStatus.COMPLETED.name
+            ))
+            if (itemId.isNotBlank()) batch.update(col.document(itemId), "status", ItemStatus.GIVEN.name)
+            batch.commit().await()
+            true
+        } else {
+            db.runTransaction { tx ->
+                val snap = tx.get(reqRef)
+                val ownerAlreadyConfirmed = snap.getBoolean("ownerConfirmed") ?: false
+                if (ownerAlreadyConfirmed) {
+                    tx.update(reqRef, mapOf(
+                        "requesterConfirmed" to true,
+                        "deliveryStatus" to DeliveryStatus.DELIVERED.name,
+                        "status" to com.example.aski.model.RequestStatus.COMPLETED.name
+                    ))
+                    if (itemId.isNotBlank()) tx.update(col.document(itemId), "status", ItemStatus.GIVEN.name)
+                    true
+                } else {
+                    tx.update(reqRef, "requesterConfirmed", true)
+                    false
+                }
+            }.await()
+        }
     }
 }

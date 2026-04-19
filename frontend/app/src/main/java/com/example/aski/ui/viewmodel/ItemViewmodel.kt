@@ -250,4 +250,25 @@ class ItemViewModel(
             repo.updateDeliveryStatus(requestId, deliveryStatus)
         }
     }
+
+    fun ownerMarkShipped(requestId: String) {
+        viewModelScope.launch { repo.updateDeliveryStatus(requestId, DeliveryStatus.SHIPPED) }
+    }
+
+    fun ownerConfirmHandover(requestId: String, onCompleted: () -> Unit) {
+        val request = _incomingRequests.value.find { it.id == requestId } ?: return
+        viewModelScope.launch {
+            val completed = repo.ownerConfirmHandover(requestId, request.itemId).getOrDefault(false)
+            if (completed) onCompleted()
+        }
+    }
+
+    fun requesterConfirmDelivery(requestId: String, onCompleted: () -> Unit) {
+        val request = _outgoingRequests.value.find { it.id == requestId } ?: return
+        val method = request.deliveryMethod ?: return
+        viewModelScope.launch {
+            val completed = repo.requesterConfirmDelivery(requestId, request.itemId, method).getOrDefault(false)
+            if (completed) onCompleted()
+        }
+    }
 }

@@ -15,7 +15,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.aski.model.DeliveryMethod
-import com.example.aski.model.DeliveryStatus
 import com.example.aski.ui.viewmodel.AuthState
 import com.example.aski.ui.viewmodel.AuthViewModel
 import com.example.aski.ui.viewmodel.ChatViewModel
@@ -124,7 +123,10 @@ fun AskiApp(
                 favoriteIds = currentUser?.favoriteIds ?: emptyList(),
                 totalUnread = totalUnread,
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
-                onToggleFavorite = { authViewModel.toggleFavorite(it) },
+                onToggleFavorite = {
+                    if (currentUser == null) navController.navigate(Screen.Login.route)
+                    else authViewModel.toggleFavorite(it)
+                },
                 onCreateListingClick = {
                     if (currentUser == null) navController.navigate(Screen.Login.route)
                     else navController.navigate(Screen.CreateListing.route)
@@ -202,9 +204,8 @@ fun AskiApp(
                         }
                     },
                     onRequestClick = {
-                        currentUser?.let { user ->
-                            itemViewModel.createRequest(itm, user.id, user.name, ownerName ?: "User")
-                        }
+                        if (currentUser == null) navController.navigate(Screen.Login.route)
+                        else itemViewModel.createRequest(itm, currentUser.id, currentUser.name, ownerName ?: "User")
                     },
                     onCancelRequestClick = {
                         currentUser?.let { user ->
@@ -383,18 +384,22 @@ fun AskiApp(
                 onRejectRequest = { requestId ->
                     itemViewModel.rejectRequest(requestId)
                 },
-                onCompleteRequest = { requestId ->
-                    val request = outgoingRequests.find { it.id == requestId }
-                    itemViewModel.completeRequest(requestId)
-                    request?.ownerId?.let { ownerId ->
-                        authViewModel.incrementKarmaAndGiven(ownerId)
-                        ratingTargetUserId = ownerId
-                        ratingTargetUserName = request.ownerName.ifBlank { "the owner" }
-                        showRatingDialog = true
-                    }
+                onOwnerMarkShipped = { requestId ->
+                    itemViewModel.ownerMarkShipped(requestId)
                 },
-                onAdvanceDelivery = { requestId, deliveryStatus ->
-                    itemViewModel.advanceDeliveryStatus(requestId, deliveryStatus)
+                onOwnerConfirmHandover = { requestId ->
+                    itemViewModel.ownerConfirmHandover(requestId) {}
+                },
+                onRequesterConfirm = { requestId ->
+                    val request = outgoingRequests.find { it.id == requestId }
+                    itemViewModel.requesterConfirmDelivery(requestId) {
+                        request?.ownerId?.let { ownerId ->
+                            authViewModel.incrementKarmaAndGiven(ownerId)
+                            ratingTargetUserId = ownerId
+                            ratingTargetUserName = request.ownerName.ifBlank { "the owner" }
+                            showRatingDialog = true
+                        }
+                    }
                 },
                 onBackClick = { navController.popBackStack() }
             )
