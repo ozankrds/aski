@@ -35,6 +35,7 @@ import com.example.aski.ui.theme.AskiWarning
 fun RequestsScreen(
     incomingRequests: List<ItemRequest>,
     outgoingRequests: List<ItemRequest>,
+    filterItemId: String? = null,
     onAcceptWithDelivery: (requestId: String, method: DeliveryMethod) -> Unit,
     onRejectRequest: (String) -> Unit,
     onOwnerMarkShipped: (String) -> Unit,
@@ -44,10 +45,20 @@ fun RequestsScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
+    val filteredIncoming = remember(incomingRequests, filterItemId) {
+        if (filterItemId != null) incomingRequests.filter { it.itemId == filterItemId }
+        else incomingRequests
+    }
+
+    val filteredOutgoing = remember(outgoingRequests, filterItemId) {
+        if (filterItemId != null) outgoingRequests.filter { it.itemId == filterItemId }
+        else outgoingRequests
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Requests") },
+                title = { Text(if (filterItemId != null) "Item Requests" else "Requests") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -70,7 +81,7 @@ fun RequestsScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Incoming")
-                            val pending = incomingRequests.count { it.status == RequestStatus.PENDING }
+                            val pending = filteredIncoming.count { it.status == RequestStatus.PENDING }
                             if (pending > 0) Badge { Text("$pending") }
                         }
                     }
@@ -86,14 +97,14 @@ fun RequestsScreen(
 
             when (selectedTab) {
                 0 -> IncomingRequestsList(
-                    requests = incomingRequests,
+                    requests = filteredIncoming,
                     onAcceptWithDelivery = onAcceptWithDelivery,
                     onReject = onRejectRequest,
                     onOwnerMarkShipped = onOwnerMarkShipped,
                     onOwnerConfirmHandover = onOwnerConfirmHandover
                 )
                 1 -> OutgoingRequestsList(
-                    requests = outgoingRequests,
+                    requests = filteredOutgoing,
                     onRequesterConfirm = onRequesterConfirm
                 )
             }

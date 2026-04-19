@@ -212,7 +212,7 @@ fun AskiApp(
                             itemViewModel.cancelRequest(itm.id, user.id)
                         }
                     },
-                    onViewRequestsClick = { navController.navigate(Screen.Requests.route) },
+                    onViewRequestsClick = { navController.navigate(Screen.ItemRequests.createRoute(itm.id)) },
                     onToggleFavorite = { authViewModel.toggleFavorite(itm.id) },
                     onUpdateItem = { updatedItem ->
                         itemViewModel.updateItem(updatedItem)
@@ -398,6 +398,30 @@ fun AskiApp(
                             showRatingDialog = true
                         }
                     }
+                },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = Screen.ItemRequests.route,
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
+            val incomingRequests by itemViewModel.incomingRequests.collectAsState()
+            ItemRequestsScreen(
+                itemId = itemId,
+                allRequests = incomingRequests,
+                onAcceptWithDelivery = { requestId, method ->
+                    itemViewModel.acceptRequestWithDelivery(requestId, method)
+                },
+                onRejectRequest = { requestId ->
+                    itemViewModel.rejectRequest(requestId)
+                },
+                onOwnerMarkShipped = { requestId ->
+                    itemViewModel.ownerMarkShipped(requestId)
+                },
+                onOwnerConfirmHandover = { requestId ->
+                    itemViewModel.ownerConfirmHandover(requestId) {}
                 },
                 onBackClick = { navController.popBackStack() }
             )
