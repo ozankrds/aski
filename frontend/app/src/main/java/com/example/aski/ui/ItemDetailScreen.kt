@@ -21,7 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -33,7 +32,9 @@ import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.aski.model.Item
 import com.example.aski.model.ItemCondition
+import com.example.aski.model.ItemRequest
 import com.example.aski.model.ItemStatus
+import com.example.aski.model.RequestStatus
 import com.example.aski.model.categories
 import com.example.aski.ui.theme.AskiDarkBg
 import com.example.aski.ui.theme.AskiError
@@ -48,9 +49,9 @@ fun ItemDetailScreen(
     isOwner: Boolean,
     isFavorite: Boolean,
     ownerName: String?,
+    allRequests: List<ItemRequest> = emptyList(),
     hasRequested: Boolean = false,
     isRequestAccepted: Boolean = false,
-    requestCount: Int = 0,
     onBackClick: () -> Unit,
     onChatClick: (String) -> Unit,
     onOwnerClick: (() -> Unit)?,
@@ -66,8 +67,6 @@ fun ItemDetailScreen(
     var editTitle by remember { mutableStateOf(item.title) }
     var editDescription by remember { mutableStateOf(item.description) }
     var editCondition by remember { mutableStateOf(item.condition) }
-    var showStatusDialog by remember { mutableStateOf(false) }
-    var showConfirmGivenDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
     var showCancelAcceptedDialog by remember { mutableStateOf(false) }
@@ -79,6 +78,11 @@ fun ItemDetailScreen(
         ItemStatus.RESERVED -> AskiWarning
         ItemStatus.GIVEN -> AskiOnBgVariant
     }
+
+    val activeRequests = remember(allRequests, item.id) {
+        allRequests.filter { it.itemId == item.id && it.status != RequestStatus.REJECTED }
+    }
+    val activeRequestCount = activeRequests.size
 
     if (showCancelAcceptedDialog) {
         AlertDialog(
@@ -93,24 +97,6 @@ fun ItemDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showCancelAcceptedDialog = false }) { Text("No") }
-            }
-        )
-    }
-
-    if (showConfirmGivenDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmGivenDialog = false },
-            title = { Text("Are you sure?") },
-            text = { Text("This change cannot be undone. Are you sure you want to mark this item as GIVEN?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onUpdateItem(item.copy(status = ItemStatus.GIVEN))
-                    showConfirmGivenDialog = false
-                    showStatusDialog = false
-                }) { Text("Proceed", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmGivenDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -139,21 +125,6 @@ fun ItemDetailScreen(
                 showReportDialog = false
             },
             onDismiss = { showReportDialog = false }
-        )
-    }
-
-    if (showStatusDialog) {
-        StatusSelectionDialog(
-            currentStatus = item.status,
-            onStatusSelected = { newStatus ->
-                if (newStatus == ItemStatus.GIVEN) {
-                    showConfirmGivenDialog = true
-                } else {
-                    onUpdateItem(item.copy(status = newStatus))
-                    showStatusDialog = false
-                }
-            },
-            onDismiss = { showStatusDialog = false }
         )
     }
 
@@ -263,41 +234,20 @@ fun ItemDetailScreen(
 
                 // Status badge
                 if (!isEditing) {
-                    val badgeModifier = if (isOwner && item.status != ItemStatus.GIVEN) {
-                        Modifier
-                            .align(Alignment.BottomStart).padding(16.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .clickable { showStatusDialog = true }
-                            .drawWithContent {
-                                drawContent()
-                                drawRect(brush = Brush.linearGradient(
-                                    0.0f to Color.White.copy(alpha = 0.25f), 1.0f to Color.Transparent,
-                                    start = androidx.compose.ui.geometry.Offset.Zero,
-                                    end = androidx.compose.ui.geometry.Offset(size.width, size.height)
-                                ))
-                                drawRect(brush = Brush.linearGradient(
-                                    0.0f to Color.Transparent, 1.0f to Color.Black.copy(alpha = 0.25f),
-                                    start = androidx.compose.ui.geometry.Offset.Zero,
-                                    end = androidx.compose.ui.geometry.Offset(size.width, size.height)
-                                ))
-                            }
-                            .background(statusColor)
-                    } else {
-                        Modifier.align(Alignment.BottomStart).padding(16.dp)
-                            .clip(RoundedCornerShape(20.dp)).background(statusColor.copy(alpha = 0.15f))
-                    }
-
-                    Surface(modifier = badgeModifier, color = Color.Transparent) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
+                            .clip(RoundedCornerShape(20.dp)).background(statusColor.copy(alpha = 0.15f)),
+                        color = Color.Transparent
+                    ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Box(Modifier.size(7.dp).clip(CircleShape)
-                                .background(if (isOwner && item.status != ItemStatus.GIVEN) Color.White else statusColor))
+                            Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor))
                             Text(
                                 item.status.name,
-                                color = if (isOwner && item.status != ItemStatus.GIVEN) Color.White else statusColor,
+                                color = statusColor,
                                 fontWeight = FontWeight.Bold, fontSize = 13.sp
                             )
                         }
@@ -410,9 +360,11 @@ fun ItemDetailScreen(
                 .padding(horizontal = 20.dp, vertical = 20.dp).navigationBarsPadding()
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                if (requestCount > 0) {
+                if (activeRequestCount > 0) {
+                    val requestText = if (activeRequestCount == 1) "1 user is requesting this item" 
+                                    else "$activeRequestCount users are requesting this item"
                     Text(
-                        text = "$requestCount people requested this item",
+                        text = requestText,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium,
@@ -506,48 +458,6 @@ fun ReportDialog(onReport: (String) -> Unit, onDismiss: () -> Unit) {
                     Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun StatusSelectionDialog(
-    currentStatus: ItemStatus,
-    onStatusSelected: (ItemStatus) -> Unit,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp, modifier = Modifier.width(280.dp)) {
-            Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Update Status", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                StatusOptionButton(ItemStatus.AVAILABLE, Color(0xFF2ECC71), currentStatus == ItemStatus.AVAILABLE) { onStatusSelected(ItemStatus.AVAILABLE) }
-                StatusOptionButton(ItemStatus.RESERVED, Color(0xFFF39C12), currentStatus == ItemStatus.RESERVED) { onStatusSelected(ItemStatus.RESERVED) }
-                StatusOptionButton(ItemStatus.GIVEN, Color(0xFFE74C3C), currentStatus == ItemStatus.GIVEN) { onStatusSelected(ItemStatus.GIVEN) }
-            }
-        }
-    }
-}
-
-@Composable
-fun StatusOptionButton(status: ItemStatus, dotColor: Color, isSelected: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (isSelected) Color(0xFF2ECC71) else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-        ),
-        contentPadding = PaddingValues(horizontal = 16.dp)
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start) {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(if (isSelected) Color.White else dotColor))
-            Spacer(Modifier.width(12.dp))
-            Text(status.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         }
     }
 }

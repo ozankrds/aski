@@ -176,16 +176,16 @@ fun AskiApp(
                 val userRequest = outgoingRequests.find { it.itemId == itm.id && it.requesterId == currentUser?.id }
                 val hasRequested = userRequest != null && userRequest.status != com.example.aski.model.RequestStatus.REJECTED
                 val isRequestAccepted = userRequest?.status == com.example.aski.model.RequestStatus.ACCEPTED
-                val currentRequestCount = itemRequestsMap[itm.id]?.size ?: 0
+                val itemRequests = itemRequestsMap[itm.id] ?: emptyList()
 
                 ItemDetailScreen(
                     item = itm,
                     isOwner = isOwner,
                     isFavorite = currentUser?.favoriteIds?.contains(itm.id) == true,
                     ownerName = if (isOwner) null else ownerName,
+                    allRequests = itemRequests,
                     hasRequested = hasRequested,
                     isRequestAccepted = isRequestAccepted,
-                    requestCount = currentRequestCount,
                     onBackClick = { navController.popBackStack() },
                     onOwnerClick = if (!isOwner) {
                         { navController.navigate(Screen.UserProfile.createRoute(itm.ownerId)) }
