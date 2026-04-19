@@ -66,8 +66,8 @@ class ChatViewModel(
         }
     }
 
-    suspend fun getOrCreateChat(itemId: String, requesterId: String, ownerId: String): Chat? =
-        repo.getOrCreateChat(itemId, requesterId, ownerId).getOrNull()
+    suspend fun getOrCreateChat(itemId: String, requesterId: String, ownerId: String, itemImageUrl: String = ""): Chat? =
+        repo.getOrCreateChat(itemId, requesterId, ownerId, itemImageUrl).getOrNull()
 
     fun sendMessage(chatId: String, senderId: String, content: String) {
         viewModelScope.launch {

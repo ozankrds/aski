@@ -195,7 +195,7 @@ fun AskiApp(
                             navController.navigate(Screen.Login.route)
                         } else {
                             scope.launch {
-                                val chat = chatViewModel.getOrCreateChat(itm.id, currentUser.id, ownerId)
+                                val chat = chatViewModel.getOrCreateChat(itm.id, currentUser.id, ownerId, itm.imageUrls.firstOrNull() ?: "")
                                 if (chat != null) {
                                     chatViewModel.sendMessage(chat.id, currentUser.id, "I'm interested in ${itm.title}")
                                     navController.navigate(Screen.Chat.createRoute(chat.id))

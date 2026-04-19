@@ -263,6 +263,11 @@ fun FeedScreen(
                         )
                         Spacer(Modifier.height(16.dp))
                     }
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                            Text("That's all!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             }
 

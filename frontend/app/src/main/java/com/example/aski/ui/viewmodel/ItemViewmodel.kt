@@ -283,19 +283,6 @@ class ItemViewModel(
         }
     }
 
-    fun completeRequest(requestId: String) {
-        val itemId = _outgoingRequests.value.find { it.id == requestId }?.itemId ?: ""
-        viewModelScope.launch {
-            repo.completeRequest(requestId, itemId)
-        }
-    }
-
-    fun advanceDeliveryStatus(requestId: String, deliveryStatus: DeliveryStatus) {
-        viewModelScope.launch {
-            repo.updateDeliveryStatus(requestId, deliveryStatus)
-        }
-    }
-
     fun ownerMarkShipped(requestId: String) {
         viewModelScope.launch { repo.updateDeliveryStatus(requestId, DeliveryStatus.SHIPPED) }
     }

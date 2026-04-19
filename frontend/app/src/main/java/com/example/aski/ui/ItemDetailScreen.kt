@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import com.example.aski.model.Item
 import com.example.aski.model.ItemCondition
 import com.example.aski.model.ItemRequest
@@ -71,6 +72,8 @@ fun ItemDetailScreen(
     var showReportDialog by remember { mutableStateOf(false) }
     var showCancelAcceptedDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     val categoryName = categories.find { it.id == item.categoryId }?.name ?: "Other"
     val statusColor = when (item.status) {
@@ -406,7 +409,10 @@ fun ItemDetailScreen(
                             }
                         } else {
                             Button(
-                                onClick = { onRequestClick?.invoke() },
+                                onClick = {
+                                    onRequestClick?.invoke()
+                                    scope.launch { snackbarHostState.showSnackbar("Request sent!") }
+                                },
                                 modifier = Modifier.weight(1.5f).height(60.dp),
                                 shape = RoundedCornerShape(20.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -431,6 +437,10 @@ fun ItemDetailScreen(
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 90.dp)
+        )
     }
 }
 

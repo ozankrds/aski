@@ -92,22 +92,28 @@ class AuthRepository(
         }
     }
 
-    suspend fun rateUser(userId: String, rating: Int): Result<Unit> = try {
-        val userDoc = db.collection("users").document(userId).get().await()
-        val user = userDoc.toObject(User::class.java) ?: throw Exception("User not found")
-        
-        val newRatingCount = user.ratingCount + 1
-        val newRating = ((user.rating * user.ratingCount) + rating) / newRatingCount
-        
-        db.collection("users").document(userId).update(
-            mapOf(
-                "rating" to newRating,
-                "ratingCount" to newRatingCount
-            )
-        ).await()
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(e)
+    suspend fun rateUser(userId: String, rating: Int): Result<Unit> = runCatching {
+        val raterId = auth.currentUser?.uid ?: throw Exception("Not authenticated")
+        val ratingRef = db.collection("users").document(userId)
+            .collection("ratings").document(raterId)
+        val userRef = db.collection("users").document(userId)
+
+        db.runTransaction { tx ->
+            val existing = tx.get(ratingRef)
+            val user = tx.get(userRef).toObject(User::class.java) ?: throw Exception("User not found")
+
+            if (existing.exists()) {
+                val oldRating = existing.getDouble("value") ?: 0.0
+                val newTotal = (user.rating * user.ratingCount) - oldRating + rating
+                val newAvg = newTotal / user.ratingCount
+                tx.update(userRef, "rating", newAvg)
+            } else {
+                val newCount = user.ratingCount + 1
+                val newAvg = ((user.rating * user.ratingCount) + rating) / newCount
+                tx.update(userRef, mapOf("rating" to newAvg, "ratingCount" to newCount))
+            }
+            tx.set(ratingRef, mapOf("value" to rating.toDouble(), "updatedAt" to System.currentTimeMillis()))
+        }.await()
     }
 
     suspend fun incrementKarmaAndGiven(userId: String): Result<Unit> = runCatching {
