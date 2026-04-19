@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,8 +35,6 @@ import com.example.aski.model.User
 import com.example.aski.ui.theme.AskiOnBgVariant
 import com.example.aski.ui.theme.AskiSuccess
 import com.example.aski.ui.theme.AskiWarning
-import com.example.aski.ui.theme.ColorPreset
-import com.example.aski.ui.theme.LocalThemeConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,10 +47,10 @@ fun ProfileScreen(
     onItemClick: (String) -> Unit,
     onMessagesClick: () -> Unit,
     onRequestsClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     onBackClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onUpdateProfile: (name: String, newPassword: String?, currentPassword: String?, photoUri: Uri?) -> Unit,
-    onDeleteAccount: (password: String) -> Unit,
     onClearError: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -62,8 +59,6 @@ fun ProfileScreen(
     var editPassword by remember { mutableStateOf("") }
     var currentPassword by remember { mutableStateOf("") }
     var photoUri by remember { mutableStateOf<Uri?>(null) }
-    var showDeleteAccountDialog by remember { mutableStateOf(false) }
-    var deletePassword by remember { mutableStateOf("") }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -75,45 +70,6 @@ fun ProfileScreen(
         rawItems.sortedWith(
             compareBy<Item> { it.status == ItemStatus.GIVEN }
                 .thenByDescending { it.createdAt }
-        )
-    }
-
-    if (showDeleteAccountDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteAccountDialog = false; deletePassword = "" },
-            title = { Text("Delete account?", color = MaterialTheme.colorScheme.error) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("This will permanently disable your account. Enter your password to confirm.")
-                    OutlinedTextField(
-                        value = deletePassword,
-                        onValueChange = { deletePassword = it },
-                        label = { Text("Password") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (!profileError.isNullOrBlank()) {
-                        Text(profileError, color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDeleteAccount(deletePassword)
-                        deletePassword = ""
-                        showDeleteAccountDialog = false
-                    },
-                    enabled = deletePassword.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteAccountDialog = false; deletePassword = "" }) { Text("Cancel") }
-            }
         )
     }
 
@@ -150,6 +106,9 @@ fun ProfileScreen(
                                 contentDescription = if (isEditing) "Save" else "Edit profile"
                             )
                         }
+                    }
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                     IconButton(onClick = onLogoutClick) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout",
@@ -317,75 +276,6 @@ fun ProfileScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             }
 
-            // Theme & appearance settings
-            item {
-                val themeConfig = LocalThemeConfig.current
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    Text("Appearance", style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(
-                                if (themeConfig.isDark) Icons.Default.DarkMode else Icons.Default.LightMode,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text("Dark mode", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            ColorPreset.entries.forEach { preset ->
-                                val selected = themeConfig.preset == preset
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(CircleShape)
-                                        .background(preset.swatch)
-                                        .then(
-                                            if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.onBackground, CircleShape)
-                                            else Modifier
-                                        )
-                                        .clickable { themeConfig.onSetPreset(preset) }
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Switch(
-                                checked = themeConfig.isDark,
-                                onCheckedChange = { themeConfig.onToggleDark() },
-                                modifier = Modifier.height(24.dp)
-                            )
-                        }
-                    }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-            }
-
-            // Danger zone
-            item {
-                TextButton(
-                    onClick = { showDeleteAccountDialog = true },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.DeleteForever, contentDescription = null,
-                        modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Delete Account", style = MaterialTheme.typography.bodySmall)
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-            }
 
             // Tabs
             item {

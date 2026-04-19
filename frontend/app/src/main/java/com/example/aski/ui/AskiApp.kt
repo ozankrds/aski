@@ -299,6 +299,7 @@ fun AskiApp(
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },
                 onMessagesClick = { navController.navigate(Screen.ChatList.route) },
                 onRequestsClick = { navController.navigate(Screen.Requests.route) },
+                onSettingsClick = { navController.navigate(Screen.Settings.route) },
                 onBackClick = { navController.popBackStack() },
                 onLogoutClick = {
                     authViewModel.logout()
@@ -308,11 +309,6 @@ fun AskiApp(
                 },
                 onUpdateProfile = { name, newPassword, currentPassword, photoUri ->
                     authViewModel.updateProfile(name, newPassword, currentPassword, photoUri)
-                },
-                onDeleteAccount = { password ->
-                    authViewModel.deleteAccount(password) {
-                        navController.navigate(Screen.Feed.route) { popUpTo(0) { inclusive = true } }
-                    }
                 },
                 onClearError = { authViewModel.clearProfileError() }
             )
@@ -464,6 +460,18 @@ fun AskiApp(
                     ratingTargetRequest = request
                     showRatingDialog = true
                 },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                profileError = profileError,
+                onDeleteAccount = { password ->
+                    authViewModel.deleteAccount(password) {
+                        navController.navigate(Screen.Feed.route) { popUpTo(0) { inclusive = true } }
+                    }
+                },
+                onClearError = { authViewModel.clearProfileError() },
                 onBackClick = { navController.popBackStack() }
             )
         }
