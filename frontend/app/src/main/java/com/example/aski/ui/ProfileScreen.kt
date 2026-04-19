@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -130,54 +132,74 @@ fun ProfileScreen(
             // Profile header
             item {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Avatar
+                    // Gradient banner
                     Box(
                         modifier = Modifier
-                            .size(88.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                            .clickable(enabled = isEditing) {
-                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            },
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                        MaterialTheme.colorScheme.background
+                                    )
+                                )
+                            )
+                    )
+
+                    // Avatar (overlapping banner)
+                    Box(
+                        modifier = Modifier.offset(y = (-44).dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        val photoSource: Any? = photoUri ?: user?.photoUrl?.ifBlank { null }
-                        if (photoSource != null) {
-                            AsyncImage(
-                                model = photoSource,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            val initial = user?.name?.trim()?.takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
-                            Text(
-                                initial,
-                                fontSize = 36.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        if (isEditing) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.4f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = Color.White)
+                        Box(
+                            modifier = Modifier
+                                .size(96.dp)
+                                .clip(CircleShape)
+                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable(enabled = isEditing) {
+                                    photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val photoSource: Any? = photoUri ?: user?.photoUrl?.ifBlank { null }
+                            if (photoSource != null) {
+                                AsyncImage(
+                                    model = photoSource,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                val initial = user?.name?.trim()?.takeIf { it.isNotEmpty() }?.take(1)?.uppercase() ?: "?"
+                                Text(
+                                    initial,
+                                    fontSize = 38.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (isEditing) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.4f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = Color.White)
+                                }
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height((-28).dp))
 
                     if (isEditing) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                         OutlinedTextField(
                             value = editName,
                             onValueChange = { editName = it },
@@ -217,6 +239,7 @@ fun ProfileScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.clickable { onClearError() })
                         }
+                        }
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -244,7 +267,7 @@ fun ProfileScreen(
                     Spacer(Modifier.height(20.dp))
 
                     // Buttons
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = onMessagesClick,
                             shape = RoundedCornerShape(12.dp),
@@ -265,6 +288,7 @@ fun ProfileScreen(
                             Text("My Requests", fontWeight = FontWeight.SemiBold)
                         }
                     }
+                    Spacer(Modifier.height(20.dp))
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
@@ -311,24 +335,33 @@ fun ProfileScreen(
 
             // Stats row
             item {
-                Row(
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 2.dp
                 ) {
-                    StatItem(label = "Listed", value = userItems.size.toString())
-                    StatItem(label = "Karma", value = user?.karmaPoints?.toString() ?: "0")
-                    StatItem(
-                        label = "Rating",
-                        value = if (user?.ratingCount == 0) "-" else "%.1f".format(user?.rating ?: 0.0)
-                    )
-                    StatItem(
-                        label = "Given",
-                        value = user?.givenCount?.toString() ?: userItems.count { it.status == ItemStatus.GIVEN }.toString()
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        StatItem(label = "Listed", value = userItems.size.toString())
+                        VerticalDivider(modifier = Modifier.height(40.dp), color = MaterialTheme.colorScheme.outline)
+                        StatItem(label = "Given", value = user?.givenCount?.toString() ?: userItems.count { it.status == ItemStatus.GIVEN }.toString())
+                        VerticalDivider(modifier = Modifier.height(40.dp), color = MaterialTheme.colorScheme.outline)
+                        StatItem(label = "Karma", value = user?.karmaPoints?.toString() ?: "0")
+                        VerticalDivider(modifier = Modifier.height(40.dp), color = MaterialTheme.colorScheme.outline)
+                        StatItem(
+                            label = "Rating",
+                            value = if (user?.ratingCount == 0) "-" else "%.1f".format(user?.rating ?: 0.0)
+                        )
+                    }
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.height(4.dp))
             }
 
             // Tabs

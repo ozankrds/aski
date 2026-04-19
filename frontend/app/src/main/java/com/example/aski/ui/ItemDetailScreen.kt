@@ -37,7 +37,6 @@ import com.example.aski.model.ItemRequest
 import com.example.aski.model.ItemStatus
 import com.example.aski.model.RequestStatus
 import com.example.aski.model.categories
-import com.example.aski.ui.theme.AskiDarkBg
 import com.example.aski.ui.theme.AskiError
 import com.example.aski.ui.theme.AskiOnBgVariant
 import com.example.aski.ui.theme.AskiSuccess
@@ -168,7 +167,7 @@ fun ItemDetailScreen(
                 )
                 Box(
                     modifier = Modifier.fillMaxWidth().height(180.dp).align(Alignment.BottomCenter)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent, AskiDarkBg)))
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.background)))
                 )
 
                 // Back button
@@ -301,22 +300,22 @@ fun ItemDetailScreen(
                         Text(
                             item.title,
                             style = MaterialTheme.typography.headlineMedium,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(
                             onClick = onToggleFavorite,
-                            modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                         ) {
                             Icon(
                                 if (isFavorite) Icons.Default.Star else Icons.Default.StarOutline,
                                 contentDescription = "Favorite",
-                                tint = if (isFavorite) Color.Yellow else Color.White
+                                tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Chip(label = categoryName)
                         Chip(label = item.condition.name.replace("_", " "))
@@ -326,20 +325,42 @@ fun ItemDetailScreen(
                     }
 
                     if (!ownerName.isNullOrBlank()) {
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = if (onOwnerClick != null) Modifier.clickable { onOwnerClick() } else Modifier
+                        Spacer(Modifier.height(16.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = if (onOwnerClick != null) Modifier.fillMaxWidth().clickable { onOwnerClick() }
+                                       else Modifier.fillMaxWidth()
                         ) {
-                            Text("by ", style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(ownerName, style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary)
-                            if (onOwnerClick != null) {
-                                Icon(Icons.Default.ChevronRight, contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp))
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(36.dp).clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        ownerName.trim().take(1).uppercase(),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Listed by", style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(ownerName, style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface)
+                                }
+                                if (onOwnerClick != null) {
+                                    Icon(Icons.Default.ChevronRight, contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp))
+                                }
                             }
                         }
                     }
@@ -359,7 +380,7 @@ fun ItemDetailScreen(
         // Bottom CTA
         Box(
             modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, AskiDarkBg.copy(alpha = 0.95f))))
+                .background(Brush.verticalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.background)))
                 .padding(horizontal = 20.dp, vertical = 20.dp).navigationBarsPadding()
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {

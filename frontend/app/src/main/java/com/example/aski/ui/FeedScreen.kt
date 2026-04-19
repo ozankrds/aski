@@ -351,7 +351,7 @@ fun FeedScreen(
         ModalBottomSheet(
             onDismissRequest = { showFilterSheet = false },
             sheetState = rememberModalBottomSheetState(),
-            containerColor = Color(0xFF1A1A1A).copy(alpha = 0.92f), // Darker translucent background
+            containerColor = MaterialTheme.colorScheme.surface,
             scrimColor = Color.Black.copy(alpha = 0.4f)
         ) {
             Column(
@@ -364,7 +364,7 @@ fun FeedScreen(
                     "Filters",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
 
@@ -372,7 +372,7 @@ fun FeedScreen(
                     "Category",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 
@@ -398,10 +398,7 @@ fun FeedScreen(
                                 }
                             },
                             label = { Text(category.name) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                labelColor = Color.White.copy(alpha = 0.7f),
-                                selectedLabelColor = Color.White
-                            )
+                            colors = FilterChipDefaults.filterChipColors()
                         )
                     }
                 }
@@ -412,7 +409,7 @@ fun FeedScreen(
                     "Condition",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
 
@@ -441,10 +438,7 @@ fun FeedScreen(
                                 }
                             },
                             label = { Text(condition.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                labelColor = Color.White.copy(alpha = 0.7f),
-                                selectedLabelColor = Color.White
-                            )
+                            colors = FilterChipDefaults.filterChipColors()
                         )
                     }
                 }
