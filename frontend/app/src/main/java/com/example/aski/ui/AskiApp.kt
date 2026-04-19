@@ -267,13 +267,11 @@ fun AskiApp(
         composable(Screen.Profile.route) {
             val userItems by itemViewModel.userItems.collectAsState()
             val allItems by itemViewModel.feedItems.collectAsState()
-            val outgoingRequests by itemViewModel.outgoingRequests.collectAsState()
 
             ProfileScreen(
                 user = currentUser,
                 userItems = userItems,
                 favoriteItems = allItems.filter { currentUser?.favoriteIds?.contains(it.id) == true },
-                sentRequests = outgoingRequests,
                 isLoading = isProfileLoading,
                 profileError = profileError,
                 onItemClick = { itemId -> navController.navigate(Screen.ItemDetail.createRoute(itemId)) },

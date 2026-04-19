@@ -33,9 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.aski.model.Item
-import com.example.aski.model.ItemRequest
 import com.example.aski.model.ItemStatus
-import com.example.aski.model.RequestStatus
 import com.example.aski.model.User
 import com.example.aski.ui.theme.AskiOnBgVariant
 import com.example.aski.ui.theme.AskiSuccess
@@ -47,7 +45,6 @@ fun ProfileScreen(
     user: User?,
     userItems: List<Item>,
     favoriteItems: List<Item>,
-    sentRequests: List<ItemRequest>,
     isLoading: Boolean,
     profileError: String?,
     onItemClick: (String) -> Unit,
@@ -263,7 +260,7 @@ fun ProfileScreen(
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Received", fontWeight = FontWeight.SemiBold)
+                            Text("My Requests", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -312,11 +309,6 @@ fun ProfileScreen(
                         onClick = { selectedTab = 1 },
                         text = { Text("Favorites") }
                     )
-                    Tab(
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
-                        text = { Text("Sent") }
-                    )
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -336,76 +328,9 @@ fun ProfileScreen(
                         }
                     }
                 }
-                2 -> {
-                    if (sentRequests.isEmpty()) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
-                                Text("No requests sent", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    } else {
-                        items(sentRequests, key = { it.id }) { request ->
-                            SentRequestRow(request = request, onClick = { onItemClick(request.itemId) })
-                        }
-                    }
-                }
             }
         }
     }
-}
-
-@Composable
-fun SentRequestRow(request: ItemRequest, onClick: () -> Unit) {
-    val statusColor = when (request.status) {
-        RequestStatus.PENDING -> AskiWarning
-        RequestStatus.ACCEPTED -> AskiSuccess
-        RequestStatus.REJECTED -> Color(0xFFE74C3C)
-        RequestStatus.COMPLETED -> AskiOnBgVariant
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            if (request.itemImageUrl.isNotBlank()) {
-                AsyncImage(
-                    model = request.itemImageUrl,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-        }
-
-        Spacer(Modifier.width(14.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(request.itemTitle, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground, maxLines = 1)
-            Text("to ${request.ownerName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(statusColor.copy(alpha = 0.15f))
-                .padding(horizontal = 10.dp, vertical = 4.dp)
-        ) {
-            Text(request.status.name, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-        }
-    }
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 20.dp),
-        color = MaterialTheme.colorScheme.outline
-    )
 }
 
 @Composable
