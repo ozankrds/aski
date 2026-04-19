@@ -22,7 +22,7 @@ class ChatRepository(
         val listener = chatsCol
             .whereArrayContains("participants", userId)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { trySend(emptyList()); return@addSnapshotListener }
                 val sorted = snap?.toObjects(Chat::class.java)
                     ?.sortedByDescending { it.lastMessageAt }
                     ?: emptyList()
@@ -35,7 +35,7 @@ class ChatRepository(
         val listener = chatsCol.document(chatId).collection("messages")
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { trySend(emptyList()); return@addSnapshotListener }
                 trySend(snap?.toObjects(Message::class.java) ?: emptyList())
             }
         awaitClose { listener.remove() }

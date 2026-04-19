@@ -22,7 +22,7 @@ class ItemRepository(
         val listener = col
             .whereEqualTo("status", ItemStatus.AVAILABLE.name)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { trySend(emptyList()); return@addSnapshotListener }
                 val sorted = snap?.toObjects(Item::class.java)
                     ?.sortedByDescending { it.createdAt }
                     ?: emptyList()
@@ -35,7 +35,7 @@ class ItemRepository(
         val listener = col
             .whereEqualTo("ownerId", userId)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { trySend(emptyList()); return@addSnapshotListener }
                 val sorted = snap?.toObjects(Item::class.java)
                     ?.sortedByDescending { it.createdAt }
                     ?: emptyList()
@@ -97,7 +97,7 @@ class ItemRepository(
         val listener = db.collection("requests")
             .whereEqualTo("ownerId", ownerId)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { trySend(emptyList()); return@addSnapshotListener }
                 val sorted = snap?.toObjects(com.example.aski.model.ItemRequest::class.java)
                     ?.sortedByDescending { it.createdAt }
                     ?: emptyList()
@@ -110,7 +110,7 @@ class ItemRepository(
         val listener = db.collection("requests")
             .whereEqualTo("requesterId", requesterId)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { trySend(emptyList()); return@addSnapshotListener }
                 val sorted = snap?.toObjects(com.example.aski.model.ItemRequest::class.java)
                     ?.sortedByDescending { it.createdAt }
                     ?: emptyList()
@@ -123,7 +123,7 @@ class ItemRepository(
         val listener = db.collection("requests")
             .whereEqualTo("itemId", itemId)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { trySend(emptyList()); return@addSnapshotListener }
                 trySend(snap?.toObjects(com.example.aski.model.ItemRequest::class.java) ?: emptyList())
             }
         awaitClose { listener.remove() }
