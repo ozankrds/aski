@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -426,7 +428,7 @@ fun ItemDetailScreen(
                             shape = RoundedCornerShape(20.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
-                            Icon(Icons.Default.Chat, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("Chat")
                         }
@@ -470,7 +472,7 @@ fun ItemDetailScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                     ) {
-                        Icon(Icons.Default.List, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
                         Spacer(Modifier.width(12.dp))
                         Text("View Requests", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }

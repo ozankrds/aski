@@ -5,6 +5,7 @@ data class Message(
     val chatId: String = "",
     val senderId: String = "",
     val content: String = "",
+    val imageUrl: String = "",
     val createdAt: Long = System.currentTimeMillis()
 ) {
     constructor() : this(id = "")

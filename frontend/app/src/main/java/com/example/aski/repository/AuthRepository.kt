@@ -110,6 +110,15 @@ class AuthRepository(
         Result.failure(e)
     }
 
+    suspend fun incrementKarmaAndGiven(userId: String): Result<Unit> = runCatching {
+        db.collection("users").document(userId).update(
+            mapOf(
+                "karmaPoints" to FieldValue.increment(1),
+                "givenCount" to FieldValue.increment(1)
+            )
+        ).await()
+    }
+
     suspend fun searchUsers(query: String): List<User> = runCatching {
         if (query.isBlank()) return emptyList()
         

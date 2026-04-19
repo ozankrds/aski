@@ -2,6 +2,8 @@ package com.example.aski.repository
 
 import android.net.Uri
 import com.example.aski.firebase.FirebaseManager
+import com.example.aski.model.DeliveryMethod
+import com.example.aski.model.DeliveryStatus
 import com.example.aski.model.Item
 import com.example.aski.model.ItemStatus
 import com.google.firebase.firestore.FirebaseFirestore
@@ -142,5 +144,44 @@ class ItemRepository(
 
     suspend fun cancelRequest(requestId: String): Result<Unit> = runCatching {
         db.collection("requests").document(requestId).delete().await()
+    }
+
+    suspend fun acceptRequestWithDelivery(requestId: String, method: DeliveryMethod, itemId: String): Result<Unit> = runCatching {
+        val batch = db.batch()
+        batch.update(db.collection("requests").document(requestId),
+            mapOf(
+                "status" to com.example.aski.model.RequestStatus.ACCEPTED.name,
+                "deliveryMethod" to method.name,
+                "deliveryStatus" to DeliveryStatus.PREPARING.name
+            )
+        )
+        if (itemId.isNotBlank()) {
+            batch.update(col.document(itemId), "status", ItemStatus.RESERVED.name)
+        }
+        batch.commit().await()
+    }
+
+    suspend fun rejectRequest(requestId: String, itemId: String, restoreAvailable: Boolean): Result<Unit> = runCatching {
+        if (restoreAvailable && itemId.isNotBlank()) {
+            val batch = db.batch()
+            batch.update(db.collection("requests").document(requestId), "status", com.example.aski.model.RequestStatus.REJECTED.name)
+            batch.update(col.document(itemId), "status", ItemStatus.AVAILABLE.name)
+            batch.commit().await()
+        } else {
+            db.collection("requests").document(requestId).update("status", com.example.aski.model.RequestStatus.REJECTED.name).await()
+        }
+    }
+
+    suspend fun completeRequest(requestId: String, itemId: String): Result<Unit> = runCatching {
+        val batch = db.batch()
+        batch.update(db.collection("requests").document(requestId), "status", com.example.aski.model.RequestStatus.COMPLETED.name)
+        if (itemId.isNotBlank()) {
+            batch.update(col.document(itemId), "status", ItemStatus.GIVEN.name)
+        }
+        batch.commit().await()
+    }
+
+    suspend fun updateDeliveryStatus(requestId: String, deliveryStatus: DeliveryStatus): Result<Unit> = runCatching {
+        db.collection("requests").document(requestId).update("deliveryStatus", deliveryStatus.name).await()
     }
 }

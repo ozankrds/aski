@@ -14,6 +14,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.aski.model.DeliveryMethod
+import com.example.aski.model.DeliveryStatus
 import com.example.aski.ui.viewmodel.AuthState
 import com.example.aski.ui.viewmodel.AuthViewModel
 import com.example.aski.ui.viewmodel.ChatViewModel
@@ -66,6 +68,7 @@ fun AskiApp(
 
     val totalUnread by chatViewModel.totalUnread.collectAsState()
     var ratingTargetUserId by remember { mutableStateOf<String?>(null) }
+    var ratingTargetUserName by remember { mutableStateOf("") }
     var showRatingDialog by remember { mutableStateOf(false) }
 
     NavHost(navController = navController, startDestination = "splash") {
@@ -130,6 +133,7 @@ fun AskiApp(
                     if (currentUser == null) navController.navigate(Screen.Login.route)
                     else navController.navigate(Screen.Profile.route)
                 },
+                onRefresh = { itemViewModel.refresh() },
                 onSearchUsers = { authViewModel.searchUsers(it) },
                 searchUsersResults = searchUsersResults,
                 onUserClick = { userId -> navController.navigate(Screen.UserProfile.createRoute(userId)) },
@@ -328,6 +332,7 @@ fun AskiApp(
                     currentUserId = user.id,
                     otherUserName = otherUser?.name,
                     onSendMessage = { content -> chatViewModel.sendMessage(chatId, user.id, content) },
+                    onSendImage = { uri -> chatViewModel.sendImage(chatId, user.id, uri) },
                     onRateUser = { rating -> otherUserId?.let { authViewModel.rateUser(it, rating) } },
                     onBackClick = { navController.popBackStack() }
                 )
@@ -368,13 +373,28 @@ fun AskiApp(
         }
         composable(Screen.Requests.route) {
             val incomingRequests by itemViewModel.incomingRequests.collectAsState()
+            val outgoingRequests by itemViewModel.outgoingRequests.collectAsState()
             RequestsScreen(
                 incomingRequests = incomingRequests,
-                onAcceptRequest = { requestId -> 
-                    itemViewModel.updateRequestStatus(requestId, com.example.aski.model.RequestStatus.ACCEPTED)
+                outgoingRequests = outgoingRequests,
+                onAcceptWithDelivery = { requestId, method ->
+                    itemViewModel.acceptRequestWithDelivery(requestId, method)
                 },
-                onRejectRequest = { requestId -> 
-                    itemViewModel.updateRequestStatus(requestId, com.example.aski.model.RequestStatus.REJECTED)
+                onRejectRequest = { requestId ->
+                    itemViewModel.rejectRequest(requestId)
+                },
+                onCompleteRequest = { requestId ->
+                    val request = outgoingRequests.find { it.id == requestId }
+                    itemViewModel.completeRequest(requestId)
+                    request?.ownerId?.let { ownerId ->
+                        authViewModel.incrementKarmaAndGiven(ownerId)
+                        ratingTargetUserId = ownerId
+                        ratingTargetUserName = request.ownerName.ifBlank { "the owner" }
+                        showRatingDialog = true
+                    }
+                },
+                onAdvanceDelivery = { requestId, deliveryStatus ->
+                    itemViewModel.advanceDeliveryStatus(requestId, deliveryStatus)
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -383,7 +403,7 @@ fun AskiApp(
 
     if (showRatingDialog && ratingTargetUserId != null) {
         com.example.aski.ui.RatingDialog(
-            targetUserName = "the owner",
+            targetUserName = ratingTargetUserName,
             onRatingSelected = { r ->
                 authViewModel.rateUser(ratingTargetUserId!!, r)
                 showRatingDialog = false

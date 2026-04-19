@@ -13,11 +13,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ListAlt
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
@@ -114,7 +114,7 @@ fun ProfileScreen(
                         }
                     }
                     IconButton(onClick = onLogoutClick) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout",
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout",
                             tint = MaterialTheme.colorScheme.error)
                     }
                 },
@@ -261,7 +261,7 @@ fun ProfileScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Default.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Received", fontWeight = FontWeight.SemiBold)
                         }

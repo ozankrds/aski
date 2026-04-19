@@ -114,4 +114,8 @@ class AuthViewModel(
             _searchResults.value = repo.searchUsers(query)
         }
     }
+
+    fun incrementKarmaAndGiven(userId: String) {
+        viewModelScope.launch { repo.incrementKarmaAndGiven(userId) }
+    }
 }

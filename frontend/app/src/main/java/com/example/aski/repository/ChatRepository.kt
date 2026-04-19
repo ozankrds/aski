@@ -1,5 +1,7 @@
 package com.example.aski.repository
 
+import android.net.Uri
+import com.example.aski.firebase.FirebaseManager
 import com.example.aski.model.Chat
 import com.example.aski.model.Message
 import com.google.firebase.firestore.FieldValue
@@ -9,6 +11,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
 class ChatRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -59,19 +62,26 @@ class ChatRepository(
         chat
     }
 
-    suspend fun sendMessage(chatId: String, senderId: String, content: String, participants: List<String>): Result<Unit> = runCatching {
+    suspend fun sendMessage(chatId: String, senderId: String, content: String, participants: List<String>, imageUrl: String = ""): Result<Unit> = runCatching {
         val msgRef = chatsCol.document(chatId).collection("messages").document()
-        val message = Message(id = msgRef.id, chatId = chatId, senderId = senderId, content = content)
+        val message = Message(id = msgRef.id, chatId = chatId, senderId = senderId, content = content, imageUrl = imageUrl)
         msgRef.set(message).await()
 
+        val preview = if (imageUrl.isNotBlank()) "📷 Photo" else content
         val updates = mutableMapOf<String, Any>(
-            "lastMessage" to content,
+            "lastMessage" to preview,
             "lastMessageAt" to System.currentTimeMillis()
         )
         participants.filter { it != senderId }.forEach { participantId ->
             updates["unreadCounts.$participantId"] = FieldValue.increment(1)
         }
         chatsCol.document(chatId).update(updates).await()
+    }
+
+    suspend fun uploadImage(uri: Uri): Result<String> = runCatching {
+        val ref = FirebaseManager.storage.reference.child("chat_images/${UUID.randomUUID()}.jpg")
+        ref.putFile(uri).await()
+        ref.downloadUrl.await().toString()
     }
 
     suspend fun markAsRead(chatId: String, userId: String): Result<Unit> = runCatching {

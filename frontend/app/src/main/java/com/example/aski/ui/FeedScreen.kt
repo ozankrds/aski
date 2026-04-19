@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,7 @@ fun FeedScreen(
     onToggleFavorite: (String) -> Unit,
     onCreateListingClick: () -> Unit,
     onProfileClick: () -> Unit,
+    onRefresh: () -> Unit,
     onSearchUsers: (String) -> Unit,
     searchUsersResults: List<User>,
     onUserClick: (String) -> Unit,
@@ -170,9 +172,13 @@ fun FeedScreen(
             ) { Icon(Icons.Default.Add, contentDescription = "Give") }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            // Main Feed Content
-            LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize().padding(innerPadding)
+        ) {
+        // Main Feed Content
+        LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 88.dp)

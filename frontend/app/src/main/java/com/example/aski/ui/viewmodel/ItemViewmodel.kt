@@ -3,9 +3,13 @@ package com.example.aski.ui.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.aski.model.DeliveryMethod
+import com.example.aski.model.DeliveryStatus
 import com.example.aski.model.Item
 import com.example.aski.model.ItemCondition
+import com.example.aski.model.RequestStatus
 import com.example.aski.repository.ItemRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -58,19 +62,24 @@ class ItemViewModel(
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun setCondition(condition: ItemCondition?) { _selectedCondition.value = condition }
 
+    private var feedJob: Job? = null
+
     init {
         observeFeed()
     }
 
     private fun observeFeed() {
+        feedJob?.cancel()
         _isLoading.value = true
-        viewModelScope.launch {
-            repo.observeFeedItems().collect { 
+        feedJob = viewModelScope.launch {
+            repo.observeFeedItems().collect {
                 _feedItems.value = it
                 _isLoading.value = false
             }
         }
     }
+
+    fun refresh() = observeFeed()
 
     fun observeUserItems(userId: String) {
         _isLoading.value = true
@@ -211,6 +220,34 @@ class ItemViewModel(
     fun updateRequestStatus(requestId: String, status: com.example.aski.model.RequestStatus) {
         viewModelScope.launch {
             repo.updateRequestStatus(requestId, status)
+        }
+    }
+
+    fun acceptRequestWithDelivery(requestId: String, method: DeliveryMethod) {
+        val itemId = _incomingRequests.value.find { it.id == requestId }?.itemId ?: ""
+        viewModelScope.launch {
+            repo.acceptRequestWithDelivery(requestId, method, itemId)
+        }
+    }
+
+    fun rejectRequest(requestId: String) {
+        val request = _incomingRequests.value.find { it.id == requestId }
+        val wasAccepted = request?.status == RequestStatus.ACCEPTED
+        viewModelScope.launch {
+            repo.rejectRequest(requestId, request?.itemId ?: "", wasAccepted)
+        }
+    }
+
+    fun completeRequest(requestId: String) {
+        val itemId = _outgoingRequests.value.find { it.id == requestId }?.itemId ?: ""
+        viewModelScope.launch {
+            repo.completeRequest(requestId, itemId)
+        }
+    }
+
+    fun advanceDeliveryStatus(requestId: String, deliveryStatus: DeliveryStatus) {
+        viewModelScope.launch {
+            repo.updateDeliveryStatus(requestId, deliveryStatus)
         }
     }
 }

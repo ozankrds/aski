@@ -1,5 +1,9 @@
 package com.example.aski.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,13 +12,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.aski.model.Message
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,6 +33,7 @@ fun ChatScreen(
     currentUserId: String,
     otherUserName: String?,
     onSendMessage: (String) -> Unit,
+    onSendImage: (Uri) -> Unit,
     onRateUser: (Int) -> Unit,
     onBackClick: () -> Unit
 ) {
@@ -32,7 +41,11 @@ fun ChatScreen(
     var showRatingDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
-    // Yeni mesaj gelince en alta scroll
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri -> if (uri != null) onSendImage(uri) }
+    )
+
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
@@ -62,6 +75,17 @@ fun ChatScreen(
                         .navigationBarsPadding(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = {
+                            imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.AddPhotoAlternate,
+                            contentDescription = "Send photo",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     OutlinedTextField(
                         value = messageText,
                         onValueChange = { messageText = it },
@@ -142,21 +166,37 @@ fun ChatBubble(message: Message, isFromMe: Boolean) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
     ) {
-        Surface(
-            color = if (isFromMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isFromMe) 16.dp else 4.dp,
-                bottomEnd = if (isFromMe) 4.dp else 16.dp
-            ),
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                color = if (isFromMe) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+        if (message.imageUrl.isNotBlank()) {
+            AsyncImage(
+                model = message.imageUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .widthIn(max = 240.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 16.dp, topEnd = 16.dp,
+                            bottomStart = if (isFromMe) 16.dp else 4.dp,
+                            bottomEnd = if (isFromMe) 4.dp else 16.dp
+                        )
+                    ),
+                contentScale = ContentScale.FillWidth
             )
+        } else {
+            Surface(
+                color = if (isFromMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(
+                    topStart = 16.dp, topEnd = 16.dp,
+                    bottomStart = if (isFromMe) 16.dp else 4.dp,
+                    bottomEnd = if (isFromMe) 4.dp else 16.dp
+                ),
+                modifier = Modifier.widthIn(max = 280.dp)
+            ) {
+                Text(
+                    text = message.content,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    color = if (isFromMe) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

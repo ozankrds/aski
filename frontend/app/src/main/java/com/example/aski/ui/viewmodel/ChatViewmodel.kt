@@ -1,5 +1,6 @@
 package com.example.aski.ui.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aski.model.Chat
@@ -70,9 +71,16 @@ class ChatViewModel(
 
     fun sendMessage(chatId: String, senderId: String, content: String) {
         viewModelScope.launch {
-            val chat = _chats.value.find { it.id == chatId }
-            val participants = chat?.participants ?: listOf(senderId)
+            val participants = _chats.value.find { it.id == chatId }?.participants ?: listOf(senderId)
             repo.sendMessage(chatId, senderId, content, participants)
+        }
+    }
+
+    fun sendImage(chatId: String, senderId: String, imageUri: Uri) {
+        viewModelScope.launch {
+            val url = repo.uploadImage(imageUri).getOrNull() ?: return@launch
+            val participants = _chats.value.find { it.id == chatId }?.participants ?: listOf(senderId)
+            repo.sendMessage(chatId, senderId, "", participants, imageUrl = url)
         }
     }
 
