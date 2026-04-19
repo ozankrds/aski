@@ -7,14 +7,17 @@ import com.example.aski.model.DeliveryMethod
 import com.example.aski.model.DeliveryStatus
 import com.example.aski.model.Item
 import com.example.aski.model.ItemCondition
+import com.example.aski.model.Rating
 import com.example.aski.model.RequestStatus
 import com.example.aski.repository.ItemRepository
+import com.example.aski.repository.RatingRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class ItemViewModel(
-    private val repo: ItemRepository = ItemRepository()
+    private val repo: ItemRepository = ItemRepository(),
+    private val ratingRepo: RatingRepository = RatingRepository()
 ) : ViewModel() {
 
     private val _feedItems = MutableStateFlow<List<Item>>(emptyList())
@@ -34,6 +37,9 @@ class ItemViewModel(
 
     private val _itemRequests = MutableStateFlow<Map<String, List<com.example.aski.model.ItemRequest>>>(emptyMap())
     val itemRequests: StateFlow<Map<String, List<com.example.aski.model.ItemRequest>>> = _itemRequests
+
+    private val _ratings = MutableStateFlow<Map<String, Rating>>(emptyMap())
+    val ratings: StateFlow<Map<String, Rating>> = _ratings
 
     private val _selectedCategoryId = MutableStateFlow(0)
     val selectedCategoryId: StateFlow<Int> = _selectedCategoryId
@@ -153,13 +159,52 @@ class ItemViewModel(
     // Request Flow
     fun observeIncomingRequests(ownerId: String) {
         viewModelScope.launch {
-            repo.observeIncomingRequests(ownerId).collect { _incomingRequests.value = it }
+            repo.observeIncomingRequests(ownerId).collect { requests ->
+                _incomingRequests.value = requests
+                fetchRatingsForRequests(requests)
+            }
         }
     }
 
     fun observeOutgoingRequests(requesterId: String) {
         viewModelScope.launch {
-            repo.observeOutgoingRequests(requesterId).collect { _outgoingRequests.value = it }
+            repo.observeOutgoingRequests(requesterId).collect { requests ->
+                _outgoingRequests.value = requests
+                fetchRatingsForRequests(requests)
+            }
+        }
+    }
+
+    private fun fetchRatingsForRequests(requests: List<com.example.aski.model.ItemRequest>) {
+        val completedItemIds = requests.filter { it.status == RequestStatus.COMPLETED }.map { it.itemId }
+        completedItemIds.forEach { itemId ->
+            if (!_ratings.value.containsKey(itemId)) {
+                viewModelScope.launch {
+                    val rating = ratingRepo.getRatingForItem(itemId)
+                    if (rating != null) {
+                        _ratings.value = _ratings.value + (itemId to rating)
+                    }
+                }
+            }
+        }
+    }
+
+    fun submitOrUpdateRating(
+        itemId: String,
+        raterId: String,
+        targetUserId: String,
+        newScore: Int,
+        onSuccess: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            ratingRepo.submitOrUpdateRating(itemId, raterId, targetUserId, newScore)
+                .onSuccess {
+                    val rating = ratingRepo.getRatingForItem(itemId)
+                    if (rating != null) {
+                        _ratings.value = _ratings.value + (itemId to rating)
+                    }
+                    onSuccess()
+                }
         }
     }
 

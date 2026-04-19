@@ -16,10 +16,11 @@ import androidx.compose.ui.window.Dialog
 @Composable
 fun RatingDialog(
     targetUserName: String,
+    existingScore: Int? = null,
     onRatingSelected: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var rating by remember { mutableIntStateOf(5) }
+    var rating by remember { mutableIntStateOf(existingScore ?: 5) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -34,14 +35,14 @@ fun RatingDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    "Success!",
+                    if (existingScore != null) "Update your rating" else "Rate your experience",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 
                 Text(
-                    "You've received the item! How was your experience with $targetUserName?",
+                    "How was your experience with $targetUserName?",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 8.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -70,14 +71,14 @@ fun RatingDialog(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Skip")
+                        Text(if (existingScore != null) "Cancel" else "Skip")
                     }
                     Button(
                         onClick = { onRatingSelected(rating) },
                         modifier = Modifier.weight(1.5f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Submit")
+                        Text(if (existingScore != null) "Update" else "Submit")
                     }
                 }
             }

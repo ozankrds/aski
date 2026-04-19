@@ -1,6 +1,7 @@
 package com.example.aski.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +26,7 @@ import coil.compose.AsyncImage
 import com.example.aski.model.DeliveryMethod
 import com.example.aski.model.DeliveryStatus
 import com.example.aski.model.ItemRequest
+import com.example.aski.model.Rating
 import com.example.aski.model.RequestStatus
 import com.example.aski.ui.theme.AskiOnBgVariant
 import com.example.aski.ui.theme.AskiSuccess
@@ -35,12 +37,14 @@ import com.example.aski.ui.theme.AskiWarning
 fun RequestsScreen(
     incomingRequests: List<ItemRequest>,
     outgoingRequests: List<ItemRequest>,
+    ratings: Map<String, Rating> = emptyMap(),
     filterItemId: String? = null,
     onAcceptWithDelivery: (requestId: String, method: DeliveryMethod) -> Unit,
     onRejectRequest: (String) -> Unit,
     onOwnerMarkShipped: (String) -> Unit,
     onOwnerConfirmHandover: (String) -> Unit,
     onRequesterConfirm: (String) -> Unit,
+    onRatingClick: (ItemRequest) -> Unit,
     onBackClick: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -98,14 +102,18 @@ fun RequestsScreen(
             when (selectedTab) {
                 0 -> IncomingRequestsList(
                     requests = filteredIncoming,
+                    ratings = ratings,
                     onAcceptWithDelivery = onAcceptWithDelivery,
                     onReject = onRejectRequest,
                     onOwnerMarkShipped = onOwnerMarkShipped,
-                    onOwnerConfirmHandover = onOwnerConfirmHandover
+                    onOwnerConfirmHandover = onOwnerConfirmHandover,
+                    onRatingClick = onRatingClick
                 )
                 1 -> OutgoingRequestsList(
                     requests = filteredOutgoing,
-                    onRequesterConfirm = onRequesterConfirm
+                    ratings = ratings,
+                    onRequesterConfirm = onRequesterConfirm,
+                    onRatingClick = onRatingClick
                 )
             }
         }
@@ -115,10 +123,12 @@ fun RequestsScreen(
 @Composable
 private fun IncomingRequestsList(
     requests: List<ItemRequest>,
+    ratings: Map<String, Rating>,
     onAcceptWithDelivery: (requestId: String, method: DeliveryMethod) -> Unit,
     onReject: (String) -> Unit,
     onOwnerMarkShipped: (String) -> Unit,
-    onOwnerConfirmHandover: (String) -> Unit
+    onOwnerConfirmHandover: (String) -> Unit,
+    onRatingClick: (ItemRequest) -> Unit
 ) {
     if (requests.isEmpty()) { EmptyState("No incoming requests"); return }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -126,11 +136,13 @@ private fun IncomingRequestsList(
             val hasAnyAccepted = requests.any { it.itemId == request.itemId && it.status == RequestStatus.ACCEPTED }
             IncomingRequestCard(
                 request = request,
+                rating = ratings[request.itemId],
                 canAccept = !hasAnyAccepted,
                 onAcceptWithDelivery = { method -> onAcceptWithDelivery(request.id, method) },
                 onReject = { onReject(request.id) },
                 onOwnerMarkShipped = { onOwnerMarkShipped(request.id) },
-                onOwnerConfirmHandover = { onOwnerConfirmHandover(request.id) }
+                onOwnerConfirmHandover = { onOwnerConfirmHandover(request.id) },
+                onRatingClick = { onRatingClick(request) }
             )
         }
     }
@@ -139,12 +151,19 @@ private fun IncomingRequestsList(
 @Composable
 private fun OutgoingRequestsList(
     requests: List<ItemRequest>,
-    onRequesterConfirm: (String) -> Unit
+    ratings: Map<String, Rating>,
+    onRequesterConfirm: (String) -> Unit,
+    onRatingClick: (ItemRequest) -> Unit
 ) {
     if (requests.isEmpty()) { EmptyState("No outgoing requests"); return }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items(requests, key = { it.id }) { request ->
-            OutgoingRequestCard(request = request, onRequesterConfirm = { onRequesterConfirm(request.id) })
+            OutgoingRequestCard(
+                request = request,
+                rating = ratings[request.itemId],
+                onRequesterConfirm = { onRequesterConfirm(request.id) },
+                onRatingClick = { onRatingClick(request) }
+            )
         }
     }
 }
@@ -152,11 +171,13 @@ private fun OutgoingRequestsList(
 @Composable
 private fun IncomingRequestCard(
     request: ItemRequest,
+    rating: Rating?,
     canAccept: Boolean,
     onAcceptWithDelivery: (DeliveryMethod) -> Unit,
     onReject: () -> Unit,
     onOwnerMarkShipped: () -> Unit,
-    onOwnerConfirmHandover: () -> Unit
+    onOwnerConfirmHandover: () -> Unit,
+    onRatingClick: () -> Unit
 ) {
     var showDeliveryDialog by remember { mutableStateOf(false) }
 
@@ -168,7 +189,9 @@ private fun IncomingRequestCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (request.status == RequestStatus.COMPLETED) Modifier.clickable { onRatingClick() } else Modifier),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
@@ -188,7 +211,12 @@ private fun IncomingRequestCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(4.dp))
-                    StatusBadge(request.status)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatusBadge(request.status)
+                        if (request.status == RequestStatus.COMPLETED && rating != null) {
+                            RatingBadge(rating.score)
+                        }
+                    }
                 }
                 if (request.status == RequestStatus.PENDING) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -225,10 +253,14 @@ private fun IncomingRequestCard(
 @Composable
 private fun OutgoingRequestCard(
     request: ItemRequest,
-    onRequesterConfirm: () -> Unit
+    rating: Rating?,
+    onRequesterConfirm: () -> Unit,
+    onRatingClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (request.status == RequestStatus.COMPLETED) Modifier.clickable { onRatingClick() } else Modifier),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
@@ -248,7 +280,12 @@ private fun OutgoingRequestCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(4.dp))
-                    StatusBadge(request.status)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatusBadge(request.status)
+                        if (request.status == RequestStatus.COMPLETED && rating != null) {
+                            RatingBadge(rating.score)
+                        }
+                    }
                 }
             }
 
@@ -257,6 +294,15 @@ private fun OutgoingRequestCard(
                 RequesterDeliveryTracker(request = request, onConfirm = onRequesterConfirm)
             }
         }
+    }
+}
+
+@Composable
+private fun RatingBadge(score: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(2.dp))
+        Text(score.toString(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
     }
 }
 

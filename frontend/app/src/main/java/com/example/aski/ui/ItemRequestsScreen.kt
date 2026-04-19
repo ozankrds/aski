@@ -1,6 +1,7 @@
 package com.example.aski.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,6 +25,7 @@ import coil.compose.AsyncImage
 import com.example.aski.model.DeliveryMethod
 import com.example.aski.model.DeliveryStatus
 import com.example.aski.model.ItemRequest
+import com.example.aski.model.Rating
 import com.example.aski.model.RequestStatus
 import com.example.aski.ui.theme.AskiOnBgVariant
 import com.example.aski.ui.theme.AskiSuccess
@@ -34,10 +36,12 @@ import com.example.aski.ui.theme.AskiWarning
 fun ItemRequestsScreen(
     itemId: String,
     allRequests: List<ItemRequest>,
+    ratings: Map<String, Rating> = emptyMap(),
     onAcceptWithDelivery: (requestId: String, method: DeliveryMethod) -> Unit,
     onRejectRequest: (String) -> Unit,
     onOwnerMarkShipped: (String) -> Unit,
     onOwnerConfirmHandover: (String) -> Unit,
+    onRatingClick: (ItemRequest) -> Unit,
     onBackClick: () -> Unit
 ) {
     val filteredRequests = remember(allRequests, itemId) {
@@ -72,11 +76,13 @@ fun ItemRequestsScreen(
                     
                     IncomingRequestCard(
                         request = request,
+                        rating = ratings[request.itemId],
                         canAccept = !hasAnyAccepted || request.status == RequestStatus.ACCEPTED,
                         onAcceptWithDelivery = { method -> onAcceptWithDelivery(request.id, method) },
                         onReject = { onRejectRequest(request.id) },
                         onOwnerMarkShipped = { onOwnerMarkShipped(request.id) },
-                        onOwnerConfirmHandover = { onOwnerConfirmHandover(request.id) }
+                        onOwnerConfirmHandover = { onOwnerConfirmHandover(request.id) },
+                        onRatingClick = { onRatingClick(request) }
                     )
                 }
             }
@@ -88,11 +94,13 @@ fun ItemRequestsScreen(
 @Composable
 private fun IncomingRequestCard(
     request: ItemRequest,
+    rating: Rating?,
     canAccept: Boolean,
     onAcceptWithDelivery: (DeliveryMethod) -> Unit,
     onReject: () -> Unit,
     onOwnerMarkShipped: () -> Unit,
-    onOwnerConfirmHandover: () -> Unit
+    onOwnerConfirmHandover: () -> Unit,
+    onRatingClick: () -> Unit
 ) {
     var showDeliveryDialog by remember { mutableStateOf(false) }
 
@@ -104,7 +112,9 @@ private fun IncomingRequestCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (request.status == RequestStatus.COMPLETED) Modifier.clickable { onRatingClick() } else Modifier),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
@@ -124,7 +134,12 @@ private fun IncomingRequestCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(4.dp))
-                    StatusBadge(request.status)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatusBadge(request.status)
+                        if (request.status == RequestStatus.COMPLETED && rating != null) {
+                            RatingBadge(rating.score)
+                        }
+                    }
                 }
                 if (request.status == RequestStatus.PENDING) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -156,6 +171,15 @@ private fun IncomingRequestCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RatingBadge(score: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(2.dp))
+        Text(score.toString(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
     }
 }
 

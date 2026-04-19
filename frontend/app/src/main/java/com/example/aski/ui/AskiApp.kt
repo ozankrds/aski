@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.aski.model.DeliveryMethod
+import com.example.aski.model.ItemRequest
 import com.example.aski.ui.viewmodel.AuthState
 import com.example.aski.ui.viewmodel.AuthViewModel
 import com.example.aski.ui.viewmodel.ChatViewModel
@@ -66,8 +67,7 @@ fun AskiApp(
     }
 
     val totalUnread by chatViewModel.totalUnread.collectAsState()
-    var ratingTargetUserId by remember { mutableStateOf<String?>(null) }
-    var ratingTargetUserName by remember { mutableStateOf("") }
+    var ratingTargetRequest by remember { mutableStateOf<ItemRequest?>(null) }
     var showRatingDialog by remember { mutableStateOf(false) }
 
     NavHost(navController = navController, startDestination = "splash") {
@@ -373,9 +373,11 @@ fun AskiApp(
         composable(Screen.Requests.route) {
             val incomingRequests by itemViewModel.incomingRequests.collectAsState()
             val outgoingRequests by itemViewModel.outgoingRequests.collectAsState()
+            val ratings by itemViewModel.ratings.collectAsState()
             RequestsScreen(
                 incomingRequests = incomingRequests,
                 outgoingRequests = outgoingRequests,
+                ratings = ratings,
                 onAcceptWithDelivery = { requestId, method ->
                     itemViewModel.acceptRequestWithDelivery(requestId, method)
                 },
@@ -391,13 +393,16 @@ fun AskiApp(
                 onRequesterConfirm = { requestId ->
                     val request = outgoingRequests.find { it.id == requestId }
                     itemViewModel.requesterConfirmDelivery(requestId) {
-                        request?.ownerId?.let { ownerId ->
-                            authViewModel.incrementKarmaAndGiven(ownerId)
-                            ratingTargetUserId = ownerId
-                            ratingTargetUserName = request.ownerName.ifBlank { "the owner" }
+                        request?.let {
+                            authViewModel.incrementKarmaAndGiven(it.ownerId)
+                            ratingTargetRequest = it
                             showRatingDialog = true
                         }
                     }
+                },
+                onRatingClick = { request ->
+                    ratingTargetRequest = request
+                    showRatingDialog = true
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -408,9 +413,11 @@ fun AskiApp(
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
             val incomingRequests by itemViewModel.incomingRequests.collectAsState()
+            val ratings by itemViewModel.ratings.collectAsState()
             ItemRequestsScreen(
                 itemId = itemId,
                 allRequests = incomingRequests,
+                ratings = ratings,
                 onAcceptWithDelivery = { requestId, method ->
                     itemViewModel.acceptRequestWithDelivery(requestId, method)
                 },
@@ -423,22 +430,38 @@ fun AskiApp(
                 onOwnerConfirmHandover = { requestId ->
                     itemViewModel.ownerConfirmHandover(requestId) {}
                 },
+                onRatingClick = { request ->
+                    ratingTargetRequest = request
+                    showRatingDialog = true
+                },
                 onBackClick = { navController.popBackStack() }
             )
         }
     }
 
-    if (showRatingDialog && ratingTargetUserId != null) {
+    if (showRatingDialog && ratingTargetRequest != null && currentUser != null) {
+        val ratings by itemViewModel.ratings.collectAsState()
+        val existingRating = ratings[ratingTargetRequest!!.itemId]
+        val isRequester = ratingTargetRequest!!.requesterId == currentUser.id
+        val targetUserId = if (isRequester) ratingTargetRequest!!.ownerId else ratingTargetRequest!!.requesterId
+        val targetUserName = if (isRequester) ratingTargetRequest!!.ownerName else ratingTargetRequest!!.requesterName
+
         com.example.aski.ui.RatingDialog(
-            targetUserName = ratingTargetUserName,
+            targetUserName = targetUserName,
+            existingScore = existingRating?.score,
             onRatingSelected = { r ->
-                authViewModel.rateUser(ratingTargetUserId!!, r)
+                itemViewModel.submitOrUpdateRating(
+                    itemId = ratingTargetRequest!!.itemId,
+                    raterId = currentUser.id,
+                    targetUserId = targetUserId,
+                    newScore = r
+                )
                 showRatingDialog = false
-                ratingTargetUserId = null
+                ratingTargetRequest = null
             },
             onDismiss = {
                 showRatingDialog = false
-                ratingTargetUserId = null
+                ratingTargetRequest = null
             }
         )
     }
