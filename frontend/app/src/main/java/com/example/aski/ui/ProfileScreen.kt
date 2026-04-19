@@ -38,6 +38,8 @@ import com.example.aski.model.User
 import com.example.aski.ui.theme.AskiOnBgVariant
 import com.example.aski.ui.theme.AskiSuccess
 import com.example.aski.ui.theme.AskiWarning
+import com.example.aski.ui.theme.ColorPreset
+import com.example.aski.ui.theme.LocalThemeConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -267,6 +269,44 @@ fun ProfileScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.height(8.dp))
+            }
+
+            // Theme settings
+            item {
+                val themeConfig = LocalThemeConfig.current
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Dark mode", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Switch(checked = themeConfig.isDark, onCheckedChange = { themeConfig.onToggleDark() })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Theme", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.weight(1f))
+                        ColorPreset.entries.forEach { preset ->
+                            val selected = themeConfig.preset == preset
+                            Box(
+                                modifier = Modifier
+                                    .size(if (selected) 32.dp else 28.dp)
+                                    .clip(CircleShape)
+                                    .background(preset.swatch)
+                                    .clickable { themeConfig.onSetPreset(preset) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (selected) Icon(
+                                    Icons.Default.Verified,
+                                    contentDescription = preset.label,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             }
 
             // Stats row
