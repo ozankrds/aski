@@ -4,6 +4,7 @@ data class Chat(
     val id: String = "",
     val itemId: String = "",
     val itemImageUrl: String = "",
+    val itemTitle: String = "",
     val participants: List<String> = emptyList(),
     val requesterId: String = "",
     val lastMessage: String = "",

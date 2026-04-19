@@ -119,7 +119,7 @@ class ItemViewModel(
         condition: ItemCondition,
         location: String,
         imageUris: List<Uri>,
-        onSuccess: () -> Unit,
+        onSuccess: (itemId: String) -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
@@ -134,8 +134,8 @@ class ItemViewModel(
                     location = location,
                     imageUrls = imageUrls
                 )
-                repo.addItem(item).getOrThrow()
-                onSuccess()
+                val created = repo.addItem(item).getOrThrow()
+                onSuccess(created.id)
             } catch (e: IllegalStateException) {
                 onError(e.message ?: "User must be authenticated to upload images.")
             } catch (e: Exception) {

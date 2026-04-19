@@ -3,8 +3,7 @@ package com.example.aski.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -195,7 +194,7 @@ fun AskiApp(
                             navController.navigate(Screen.Login.route)
                         } else {
                             scope.launch {
-                                val chat = chatViewModel.getOrCreateChat(itm.id, currentUser.id, ownerId, itm.imageUrls.firstOrNull() ?: "")
+                                val chat = chatViewModel.getOrCreateChat(itm.id, currentUser.id, ownerId, itm.imageUrls.firstOrNull() ?: "", itm.title)
                                 if (chat != null) {
                                     chatViewModel.sendMessage(chat.id, currentUser.id, "I'm interested in ${itm.title}")
                                     navController.navigate(Screen.Chat.createRoute(chat.id))
@@ -234,6 +233,28 @@ fun AskiApp(
         composable(Screen.CreateListing.route) {
             var isUploading by remember { mutableStateOf(false) }
             var errorMessage by remember { mutableStateOf<String?>(null) }
+            var showSharePrompt by remember { mutableStateOf(false) }
+            var createdItemId by remember { mutableStateOf("") }
+
+            if (showSharePrompt) {
+                AlertDialog(
+                    onDismissRequest = { showSharePrompt = false; navController.popBackStack() },
+                    title = { Text("Your listing is live!") },
+                    text = { Text("Share it with friends to find a home for your item faster.") },
+                    confirmButton = {
+                        Button(onClick = {
+                            showSharePrompt = false
+                            navController.popBackStack()
+                            if (createdItemId.isNotBlank()) {
+                                navController.navigate(Screen.ItemDetail.createRoute(createdItemId))
+                            }
+                        }) { Text("Share") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showSharePrompt = false; navController.popBackStack() }) { Text("Done") }
+                    }
+                )
+            }
 
             CreateListingScreen(
                 onPostItem = { title, desc, catId, cond, location, uris ->
@@ -248,9 +269,10 @@ fun AskiApp(
                             condition = cond,
                             location = location,
                             imageUris = uris,
-                            onSuccess = {
+                            onSuccess = { itemId ->
                                 isUploading = false
-                                navController.popBackStack()
+                                createdItemId = itemId
+                                showSharePrompt = true
                             },
                             onError = { err ->
                                 isUploading = false
@@ -330,6 +352,8 @@ fun AskiApp(
                     messages = messages,
                     currentUserId = user.id,
                     otherUserName = otherUser?.name,
+                    itemTitle = chat?.itemTitle ?: "",
+                    itemImageUrl = chat?.itemImageUrl ?: "",
                     onSendMessage = { content -> chatViewModel.sendMessage(chatId, user.id, content) },
                     onSendImage = { uri -> chatViewModel.sendImage(chatId, user.id, uri) },
                     onRateUser = { rating -> otherUserId?.let { authViewModel.rateUser(it, rating) } },

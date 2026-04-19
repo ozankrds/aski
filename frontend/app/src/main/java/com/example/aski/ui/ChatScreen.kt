@@ -32,6 +32,8 @@ fun ChatScreen(
     messages: List<Message>,
     currentUserId: String,
     otherUserName: String?,
+    itemTitle: String = "",
+    itemImageUrl: String = "",
     onSendMessage: (String) -> Unit,
     onSendImage: (Uri) -> Unit,
     onRateUser: (Int) -> Unit,
@@ -119,6 +121,31 @@ fun ChatScreen(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
+            if (itemTitle.isNotBlank()) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            if (itemImageUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = itemImageUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            Text(itemTitle, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 2)
+                        }
+                    }
+                }
+            }
             items(messages, key = { it.id }) { message ->
                 ChatBubble(message, isFromMe = message.senderId == currentUserId)
             }

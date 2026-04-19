@@ -1,5 +1,6 @@
 package com.example.aski.ui
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -249,10 +251,28 @@ fun FeedScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
+                val isFiltered = !appliedCategoryIds.contains(0) || appliedConditions.isNotEmpty() || searchQuery.isNotBlank()
                 if (isLoading) {
-                    item { Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                    items(4) { ItemCardSkeleton() }
                 } else if (displayed.isEmpty()) {
-                    item { Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("Nothing found") } }
+                    item {
+                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(
+                                    if (isFiltered) "No items match your filters" else "No items yet",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (isFiltered) {
+                                    OutlinedButton(onClick = {
+                                        appliedCategoryIds = setOf(0)
+                                        appliedConditions = emptySet()
+                                        tempCategoryIds = setOf(0)
+                                        tempConditions = emptySet()
+                                    }) { Text("Clear filters") }
+                                }
+                            }
+                        }
+                    }
                 } else {
                     items(displayed, key = { it.id }) { item ->
                         ItemCard(
@@ -486,15 +506,22 @@ fun ItemCard(item: Item, isFavorite: Boolean, onFavoriteClick: () -> Unit, onCli
 
             Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xE6000000)))))
 
-            Surface(
+            Row(
                 modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
-                color = statusColor.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(20.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(statusColor))
-                    Spacer(Modifier.width(5.dp))
-                    Text(item.status.name, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Surface(color = statusColor.copy(alpha = 0.15f), shape = RoundedCornerShape(20.dp)) {
+                    Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(6.dp).clip(CircleShape).background(statusColor))
+                        Spacer(Modifier.width(5.dp))
+                        Text(item.status.name, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                val isNew = System.currentTimeMillis() - item.createdAt < 24 * 60 * 60 * 1000L
+                if (isNew) {
+                    Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f), shape = RoundedCornerShape(20.dp)) {
+                        Text("New", modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
@@ -515,4 +542,33 @@ fun ItemCard(item: Item, isFavorite: Boolean, onFavoriteClick: () -> Unit, onCli
             }
         }
     }
+}
+
+@Composable
+fun ItemCardSkeleton() {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val shimmerX by transition.animateFloat(
+        initialValue = -600f, targetValue = 1200f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
+        label = "shimmerX"
+    )
+    val brush = Brush.linearGradient(
+        colors = listOf(Color(0xFF2A2A2A), Color(0xFF3D3D3D), Color(0xFF2A2A2A)),
+        start = Offset(shimmerX, 0f),
+        end = Offset(shimmerX + 600f, 0f)
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .height(260.dp)
+            .background(brush)
+    ) {
+        Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.fillMaxWidth(0.6f).height(20.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.15f)))
+            Box(Modifier.fillMaxWidth(0.4f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.1f)))
+        }
+    }
+    Spacer(Modifier.height(16.dp))
 }

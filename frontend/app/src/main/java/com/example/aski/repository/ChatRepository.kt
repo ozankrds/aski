@@ -41,7 +41,7 @@ class ChatRepository(
         awaitClose { listener.remove() }
     }
 
-    suspend fun getOrCreateChat(itemId: String, requesterId: String, ownerId: String, itemImageUrl: String = ""): Result<Chat> = runCatching {
+    suspend fun getOrCreateChat(itemId: String, requesterId: String, ownerId: String, itemImageUrl: String = "", itemTitle: String = ""): Result<Chat> = runCatching {
         val existing = chatsCol
             .whereEqualTo("itemId", itemId)
             .whereArrayContains("participants", requesterId)
@@ -56,6 +56,7 @@ class ChatRepository(
             id = ref.id,
             itemId = itemId,
             itemImageUrl = itemImageUrl,
+            itemTitle = itemTitle,
             participants = listOf(requesterId, ownerId),
             requesterId = requesterId
         )
