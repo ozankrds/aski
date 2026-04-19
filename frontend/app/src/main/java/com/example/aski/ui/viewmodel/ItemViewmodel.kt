@@ -78,8 +78,12 @@ class ItemViewModel(
         feedJob?.cancel()
         _isLoading.value = true
         feedJob = viewModelScope.launch {
-            repo.observeFeedItems().collect {
-                _feedItems.value = it
+            try {
+                repo.observeFeedItems().collect {
+                    _feedItems.value = it
+                    _isLoading.value = false
+                }
+            } catch (e: Exception) {
                 _isLoading.value = false
             }
         }
