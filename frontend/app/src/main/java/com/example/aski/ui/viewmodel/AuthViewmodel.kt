@@ -80,6 +80,18 @@ class AuthViewModel(
 
     fun clearProfileError() { _profileError.value = null }
 
+    fun deleteAccount(password: String, onSuccess: () -> Unit) {
+        val userId = (authState.value as? AuthState.Authenticated)?.user?.id ?: return
+        viewModelScope.launch {
+            repo.deleteAccount(userId, password)
+                .onSuccess {
+                    _authState.value = AuthState.Unauthenticated
+                    onSuccess()
+                }
+                .onFailure { _profileError.value = it.message ?: "Failed to delete account" }
+        }
+    }
+
     fun toggleFavorite(itemId: String) {
         val currentUser = (authState.value as? AuthState.Authenticated)?.user ?: return
         val isFavorite = currentUser.favoriteIds.contains(itemId)

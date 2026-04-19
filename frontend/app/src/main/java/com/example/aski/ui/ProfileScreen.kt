@@ -53,6 +53,7 @@ fun ProfileScreen(
     onBackClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onUpdateProfile: (name: String, newPassword: String?, currentPassword: String?, photoUri: Uri?) -> Unit,
+    onDeleteAccount: (password: String) -> Unit,
     onClearError: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -61,6 +62,8 @@ fun ProfileScreen(
     var editPassword by remember { mutableStateOf("") }
     var currentPassword by remember { mutableStateOf("") }
     var photoUri by remember { mutableStateOf<Uri?>(null) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var deletePassword by remember { mutableStateOf("") }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -72,6 +75,45 @@ fun ProfileScreen(
         rawItems.sortedWith(
             compareBy<Item> { it.status == ItemStatus.GIVEN }
                 .thenByDescending { it.createdAt }
+        )
+    }
+
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAccountDialog = false; deletePassword = "" },
+            title = { Text("Delete account?", color = MaterialTheme.colorScheme.error) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("This will permanently disable your account. Enter your password to confirm.")
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = { deletePassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (!profileError.isNullOrBlank()) {
+                        Text(profileError, color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteAccount(deletePassword)
+                        deletePassword = ""
+                        showDeleteAccountDialog = false
+                    },
+                    enabled = deletePassword.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAccountDialog = false; deletePassword = "" }) { Text("Cancel") }
+            }
         )
     }
 
@@ -326,6 +368,21 @@ fun ProfileScreen(
                             )
                         }
                     }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            }
+
+            // Danger zone
+            item {
+                TextButton(
+                    onClick = { showDeleteAccountDialog = true },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.DeleteForever, contentDescription = null,
+                        modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Delete Account", style = MaterialTheme.typography.bodySmall)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             }

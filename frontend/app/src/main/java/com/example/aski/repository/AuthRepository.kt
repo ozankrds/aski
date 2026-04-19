@@ -125,6 +125,13 @@ class AuthRepository(
         ).await()
     }
 
+    suspend fun deleteAccount(userId: String, password: String): Result<Unit> = runCatching {
+        val firebaseUser = auth.currentUser ?: throw IllegalStateException("Not authenticated")
+        reauthenticate(firebaseUser.email ?: "", password).getOrThrow()
+        db.collection("users").document(userId).update("isDeleted", true).await()
+        auth.signOut()
+    }
+
     suspend fun searchUsers(query: String): List<User> = runCatching {
         if (query.isBlank()) return emptyList()
         

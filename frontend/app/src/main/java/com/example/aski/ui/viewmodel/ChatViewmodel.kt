@@ -84,5 +84,9 @@ class ChatViewModel(
         }
     }
 
+    fun deleteMessage(chatId: String, messageId: String) {
+        viewModelScope.launch { repo.deleteMessage(chatId, messageId) }
+    }
+
     suspend fun getChat(chatId: String) = repo.getChat(chatId)
 }

@@ -309,6 +309,11 @@ fun AskiApp(
                 onUpdateProfile = { name, newPassword, currentPassword, photoUri ->
                     authViewModel.updateProfile(name, newPassword, currentPassword, photoUri)
                 },
+                onDeleteAccount = { password ->
+                    authViewModel.deleteAccount(password) {
+                        navController.navigate(Screen.Feed.route) { popUpTo(0) { inclusive = true } }
+                    }
+                },
                 onClearError = { authViewModel.clearProfileError() }
             )
         }
@@ -356,6 +361,7 @@ fun AskiApp(
                     itemImageUrl = chat?.itemImageUrl ?: "",
                     onSendMessage = { content -> chatViewModel.sendMessage(chatId, user.id, content) },
                     onSendImage = { uri -> chatViewModel.sendImage(chatId, user.id, uri) },
+                    onDeleteMessage = { messageId -> chatViewModel.deleteMessage(chatId, messageId) },
                     onRateUser = { rating -> otherUserId?.let { authViewModel.rateUser(it, rating) } },
                     onBackClick = { navController.popBackStack() }
                 )

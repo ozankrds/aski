@@ -90,6 +90,11 @@ class ChatRepository(
         chatsCol.document(chatId).update("unreadCounts.$userId", 0).await()
     }
 
+    suspend fun deleteMessage(chatId: String, messageId: String): Result<Unit> = runCatching {
+        chatsCol.document(chatId).collection("messages").document(messageId)
+            .update("isDeleted", true).await()
+    }
+
     suspend fun getChat(chatId: String): Chat? =
         chatsCol.document(chatId).get().await().toObject(Chat::class.java)
 }

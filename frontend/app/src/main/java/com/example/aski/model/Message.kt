@@ -6,7 +6,8 @@ data class Message(
     val senderId: String = "",
     val content: String = "",
     val imageUrl: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val isDeleted: Boolean = false
 ) {
     constructor() : this(id = "")
 }
